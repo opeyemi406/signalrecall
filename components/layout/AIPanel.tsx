@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, X, Sparkles, Plus, Send, TrendingUp, BarChart3 } from "lucide-react";
+import { RotateCcw, X, Sparkles, Send, TrendingUp, BarChart3 } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { askAssistant } from "@/lib/ai";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,107 @@ export interface AIPanelProps {
 }
 
 const SUGGESTIONS = [
+  { label: "Summarize today's market sentiment", icon: TrendingUp },
   { label: "Analyze BTC Trend", icon: TrendingUp },
   { label: "What do you remember about SOL?", icon: BarChart3 },
 ];
+
+function parseInlineFormatting(str: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  // Match **bold** or *italic*
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(str)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push(str.substring(lastIdx, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith("**") && token.endsWith("**")) {
+      parts.push(
+        <strong key={`b-${match.index}`} className="font-semibold text-white">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      parts.push(
+        <em key={`em-${match.index}`} className="text-white/80 italic">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    lastIdx = regex.lastIndex;
+  }
+
+  if (lastIdx < str.length) {
+    parts.push(str.substring(lastIdx));
+  }
+
+  return parts.length > 0 ? parts : [str];
+}
+
+function FormattedMessage({ content }: { content: string }) {
+  if (!content) return null;
+
+  const lines = content.split("\n");
+  const nodes: React.ReactNode[] = [];
+  let currentList: React.ReactNode[] = [];
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      nodes.push(
+        <ul key={`ul-${nodes.length}`} className="my-2 space-y-1.5 pl-0.5">
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  lines.forEach((line, lineIdx) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    // Markdown headers (### or ## or #)
+    const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headerMatch) {
+      flushList();
+      nodes.push(
+        <div key={`h-${lineIdx}`} className="mt-2.5 mb-1 text-[13px] font-semibold text-white tracking-wide">
+          {parseInlineFormatting(headerMatch[2])}
+        </div>
+      );
+      return;
+    }
+
+    // Bullet points (- or * or •)
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    if (bulletMatch) {
+      currentList.push(
+        <li key={`li-${lineIdx}`} className="flex items-start gap-2 text-white/90">
+          <span className="text-electric shrink-0 leading-[18px] text-[10px] select-none">•</span>
+          <span className="flex-1 leading-relaxed">{parseInlineFormatting(bulletMatch[1])}</span>
+        </li>
+      );
+      return;
+    }
+
+    flushList();
+    nodes.push(
+      <p key={`p-${lineIdx}`} className="leading-relaxed">
+        {parseInlineFormatting(trimmed)}
+      </p>
+    );
+  });
+
+  flushList();
+
+  return <div className="space-y-2">{nodes}</div>;
+}
 
 export function AIPanel({ onClose, className }: AIPanelProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -135,7 +233,12 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
                     : "mr-2 glass text-white/90"
                 )}
               >
-                <div className="whitespace-pre-line">{m.content}</div>
+                {m.role === "user" ? (
+                  <div className="whitespace-pre-line">{m.content}</div>
+                ) : (
+                  <FormattedMessage content={m.content} />
+                )}
+
                 {m.citations && m.citations.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-white/10 pt-2">
                     {m.citations.map((c) => (
@@ -155,7 +258,7 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
             {loading && (
               <div className="glass rounded-2xl p-3.5 text-xs text-fg-2 flex items-center gap-2">
                 <Sparkles className="size-3.5 text-electric animate-spin" />
-                <span>Recalling Walrus memories…</span>
+                <span>Analyzing live market data & Walrus memory…</span>
               </div>
             )}
           </div>
@@ -186,16 +289,8 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
             e.preventDefault();
             handleSend();
           }}
-          className="glass-pill flex items-center gap-2 rounded-full p-1.5 pl-2.5 border border-white/15 bg-white/[0.06]"
+          className="glass-pill flex items-center gap-2 rounded-full p-1.5 pl-3.5 border border-white/15 bg-white/[0.06]"
         >
-          <button
-            type="button"
-            aria-label="Add context"
-            onClick={() => handleSend("Summarize today's market sentiment")}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
-          >
-            <Plus className="size-3.5" />
-          </button>
           <input
             type="text"
             value={input}
