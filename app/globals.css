@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────
+   SignalRecall design tokens
+   ───────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #05060d;
+  --color-ink-2: #0a0c18;
+  --color-navy: #0b1a4a;
+  --color-indigo: #1b2a8f;
+  --color-deep-indigo: #2b1fb8;
+
+  --color-electric: #2f6bff;
+  --color-glow: #1d6bff;
+  --color-violet: #6d5ef5;
+  --color-violet-2: #8b5cf6;
+  --color-btn-from: #4f6bff;
+
+  --color-up: #19d49a;
+  --color-down: #ff4d5e;
+  --color-amber: #f5a623;
+  --color-cyan: #22d3ee;
+  --color-magenta: #e040fb;
+
+  --color-fg: #ffffff;
+  --color-fg-2: rgb(255 255 255 / 0.55);
+  --color-fg-3: rgb(255 255 255 / 0.35);
+  --color-line: rgb(255 255 255 / 0.08);
+
+  --radius-card: 22px;
+
+  --animate-shimmer: liquid-shimmer 6s ease-in-out infinite alternate;
+  --animate-pulse-dot: pulse-dot 2.4s ease-in-out infinite;
+
+  @keyframes liquid-shimmer {
+    0% { background-position: 0% 50%, 0% 0%; }
+    100% { background-position: 100% 50%, 0% 0%; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(1.4); }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    min-height: 100%;
+  }
+  body {
+    min-height: 100%;
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  * { border-color: var(--color-line); }
+  ::selection { background: rgb(47 107 255 / 0.45); color: #fff; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-electric);
+    outline-offset: 2px;
+    border-radius: 9999px;
+  }
+}
+
+/* Numbers always tabular */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* Thin scrollbars on inner panels */
+.scroll-panel { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.12) transparent; }
+.scroll-panel::-webkit-scrollbar { width: 6px; height: 6px; }
+.scroll-panel::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.12); border-radius: 9999px; }
+.scroll-panel::-webkit-scrollbar-track { background: transparent; }
+
+/* ─────────────────────────────────────────────────────────────
+   App background: radial glows + grain
+   ───────────────────────────────────────────────────────────── */
+.app-bg {
+  background:
+    radial-gradient(700px 420px at 50% -120px, rgb(29 107 255 / 0.35), transparent 70%),
+    radial-gradient(1100px 600px at 55% 115%, rgb(27 42 143 / 0.75), transparent 70%),
+    linear-gradient(180deg, #05060d 0%, #05060d 45%, #0b1a4a 100%);
+}
+
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Glass surfaces
+   ───────────────────────────────────────────────────────────── */
+.glass {
+  position: relative;
+  border-radius: var(--radius-card);
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02));
+  border: 1px solid rgb(255 255 255 / 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 20px 60px rgb(0 0 0 / 0.5);
+}
+/* Lower-page cards pick up a blue tint */
+.glass-tint {
+  background:
+    linear-gradient(180deg, rgb(15 27 77 / 0.55), transparent 85%),
+    linear-gradient(145deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02));
+}
+/* AI summary / feature card: blue gradient glass */
+.glass-blue {
+  background:
+    radial-gradient(120% 90% at 70% 110%, rgb(47 107 255 / 0.45), transparent 60%),
+    linear-gradient(160deg, rgb(29 60 160 / 0.35), rgb(10 16 48 / 0.4));
+}
+.glass-interactive { transition: transform 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out; }
+.glass-interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 24px 70px rgb(0 0 0 / 0.55);
+}
+
+/* Glass pills (inputs, chips, secondary buttons) */
+.glass-pill {
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* Primary gradient pill button */
+.btn-primary {
+  background: linear-gradient(90deg, #4f6bff, #6d5ef5);
+  color: #fff;
+  box-shadow: 0 8px 28px rgb(79 107 255 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.3);
+  transition: box-shadow 200ms ease-out, transform 200ms ease-out, filter 200ms ease-out;
+}
+.btn-primary:hover { filter: brightness(1.08); box-shadow: 0 10px 34px rgb(79 107 255 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.35); }
+
+/* ─────────────────────────────────────────────────────────────
+   Liquid highlight — signature active pill / row
+   ───────────────────────────────────────────────────────────── */
+.liquid {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(120 160 255 / 0.4);
+  background:
+    radial-gradient(ellipse 45% 120% at 85% 50%, rgb(120 170 255 / 0.95), transparent 60%),
+    linear-gradient(90deg, rgb(29 78 216 / 0.9) 0%, rgb(59 130 246 / 0.6) 60%, transparent 100%);
+  background-size: 160% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  animation: var(--animate-shimmer);
+}
+.liquid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 50% 140% at 85% 50%, rgb(120 170 255 / 0.9), transparent 65%),
+    linear-gradient(90deg, rgb(29 78 216 / 0.7), transparent 100%);
+  filter: blur(18px);
+  opacity: 0.7;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Gel allocation segments
+   ───────────────────────────────────────────────────────────── */
+.gel {
+  --seg: #2f6bff;
+  border-radius: 9999px;
+  background:
+    repeating-linear-gradient(115deg, rgb(255 255 255 / 0.10) 0 6px, transparent 6px 12px),
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--seg) 45%, white) 0%,
+      var(--seg) 50%,
+      color-mix(in oklab, var(--seg) 78%, black) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.65),
+    inset 0 -2px 4px rgb(0 0 0 / 0.25),
+    0 8px 24px color-mix(in srgb, var(--seg) 50%, transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   AI panel
+   ───────────────────────────────────────────────────────────── */
+.ai-panel-bg {
+  background:
+    radial-gradient(120% 70% at 50% 110%, rgb(109 94 245 / 0.95), transparent 70%),
+    radial-gradient(80% 60% at 80% 80%, rgb(43 31 184 / 0.85), transparent 70%),
+    linear-gradient(180deg, #05060d 0%, #0a0a22 40%, #1a1466 100%);
+}
+.ring-conic {
+  background: conic-gradient(from 0deg, #2f6bff, #ff4d5e, #19d49a, #2f6bff);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
