@@ -101,7 +101,12 @@ export async function recallSignalMemories(
 
   try {
     const client = getMemWalClient();
-    const result: RecallResult = await client.recall({ query, topK, maxDistance });
+    const namespace = process.env.MEMWAL_NAMESPACE || "signalrecall";
+    const result: RecallResult = await client.recall({
+      query,
+      limit: topK,
+      namespace,
+    });
     return {
       success: true,
       results: result.results.map((r) => ({

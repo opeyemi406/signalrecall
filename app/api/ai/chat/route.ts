@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStoredMemories } from "@/lib/server/storage";
-import { fetchTatumRate, isTatumConfigured } from "@/lib/server/tatum";
+import { fetchAllTatumRates, fetchTatumRate, isTatumConfigured } from "@/lib/server/tatum";
 import { recallSignalMemories } from "@/lib/server/walrus";
 import { auth } from "@/lib/auth";
 import { SUPPORTED_COINS, type ChatMessage, type CoinSymbol } from "@/lib/types";
@@ -38,18 +38,28 @@ export async function POST(req: Request) {
     if (assetMentioned && isTatumConfigured()) {
       const rate = await fetchTatumRate(assetMentioned);
       if (rate) {
-        rateInfo = `Live ${assetMentioned} spot price via Tatum is $${rate.price.toLocaleString(undefined, {
+        rateInfo = `Live ${assetMentioned} spot price via Tatum Data API is $${rate.price.toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}.`;
       }
-    } else if (assetMentioned && !isTatumConfigured()) {
-      rateInfo = `Note: TATUM_API_KEY is not configured, so real-time onchain price for ${assetMentioned} is currently unavailable.`;
+    } else if (!assetMentioned && isTatumConfigured()) {
+      // General market or multi-asset query: inject full live Tatum market feed
+      const market = await fetchAllTatumRates();
+      if (market.assets && market.assets.length > 0) {
+        const lines = market.assets.map(
+          (a) => `• ${a.symbol} (${a.name}): $${a.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${a.change24h >= 0 ? "+" : ""}${a.change24h.toFixed(2)}% 24h, 24h Vol: $${(a.volume24h / 1e6).toFixed(1)}M)`
+        );
+        rateInfo = `Live spot feeds via Tatum Data API:\n${lines.join("\n")}`;
+      }
+    } else if (!isTatumConfigured()) {
+      rateInfo = "Note: TATUM_API_KEY is not configured, so real-time onchain prices are currently unavailable.";
     }
 
     let content = "";
     const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
     const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash";
+    const appUrl = process.env.AUTH_URL || "https://signal-recall.up.railway.app";
 
     if (openrouterKey) {
       // Call OpenRouter with DeepSeek
@@ -60,16 +70,19 @@ export async function POST(req: Request) {
         const memContext = [
           ...relevant.map((m) => `[Walrus Memory Blob ${m.blobId}] ${m.title}: ${m.body} (Outcome: ${m.outcome || "N/A"})`),
           semanticContext,
-        ].filter(Boolean).join("\n") || "No specific memories found for this query.";
+        ].filter(Boolean).join("\n") || "No user-recorded signal memories for this query.";
 
         const systemPrompt = `You are SignalRecall's AI Trading Intelligence Assistant.
 You specialize in technical price action, liquidity, and objective 24-hour verification.
 You are strictly grounded in:
-1. Live Market Data via Tatum Data API (${rateInfo || "Prices streaming live"})
-2. Immutable historical observations recalled from decentralized Walrus Memory:
+1. Live Market Data via Tatum Data API:
+${rateInfo || "Prices streaming live."}
+
+2. Historical observations recalled from decentralized Walrus Memory:
 ${memContext}
 
 Guidelines:
+- Provide actionable, factual insights using the live Tatum prices and 24h changes provided above.
 - Reference specific memories or patterns when relevant.
 - Be precise, direct, and concise.
 - Never guarantee profits or make wild claims; emphasize 24-hour verification accountability.`;
@@ -79,7 +92,7 @@ Guidelines:
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${openrouterKey}`,
-            "HTTP-Referer": "http://localhost:3001",
+            "HTTP-Referer": appUrl,
             "X-Title": "SignalRecall",
           },
           body: JSON.stringify({
@@ -89,7 +102,7 @@ Guidelines:
               { role: "user", content: prompt },
             ],
             temperature: 0.3,
-            max_tokens: 600,
+            max_tokens: 1200,
           }),
         });
 
@@ -112,9 +125,7 @@ Guidelines:
       } else if (assetMentioned) {
         content = `${rateInfo}\n\nNo stored historical memories for ${assetMentioned} found in your decentralized Walrus vault yet. Storing observations in the Memory Bank will help ground future analysis.`;
       } else {
-        content = `I am SignalRecall's AI analyst. I ground signals and alerts directly against decentralized Walrus memory blobs and Tatum's 24h objective verification engine.\n\n${
-          isTatumConfigured() ? "✓ Tatum live feed connected." : "⚠ TATUM_API_KEY unconfigured (add in .env)."
-        } Currently indexing ${memories.length} decentralized memories. Ask about BTC, ETH, SOL, SUI, or query your track record.`;
+        content = `I am SignalRecall's AI analyst. I ground signals and alerts directly against decentralized Walrus memory blobs and Tatum's 24h objective verification engine.\n\n${rateInfo}\n\nCurrently indexing ${memories.length} decentralized memories. Ask about BTC, ETH, SOL, SUI, or query your track record.`;
       }
     }
 
