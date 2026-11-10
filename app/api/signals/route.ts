@@ -21,13 +21,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required to generate and track trading signals." },
-        { status: 401 }
-      );
-    }
-    const userId = session.user.id;
+    const userId = session?.user?.id || undefined;
 
     const body = await req.json();
     const { asset, direction, target, invalidation, confidence, rationale } = body as {

@@ -5,6 +5,7 @@ import { BarChart2, TrendingUp, Flame, KeyRound } from "lucide-react";
 import { StatCard } from "@/components/cards/StatCard";
 import { AISummaryCard } from "@/components/cards/AISummaryCard";
 import { AIOpportunitiesCard } from "@/components/cards/AIOpportunitiesCard";
+import { CandlestickChart } from "@/components/cards/CandlestickChart";
 import { MarketOverviewCard } from "@/components/cards/MarketOverviewCard";
 import { RecentAlertsCard } from "@/components/cards/RecentAlertsCard";
 import type { Signal } from "@/lib/types";
@@ -134,6 +135,17 @@ export default function DashboardPage() {
         <div className="lg:col-span-5">
           <AIOpportunitiesCard />
         </div>
+      </div>
+
+      {/* Live Candlestick Chart & AI Technical Scanner */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-white">Live Chart &amp; AI Scanner</h3>
+            <p className="text-xs text-fg-2">Real-time candlesticks with 1-click quantitative AI technical analysis</p>
+          </div>
+        </div>
+        <CandlestickChart symbol="BTC" />
       </div>
 
       {/* Bottom Row: Market Overview + Recent Alerts */}
