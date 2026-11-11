@@ -20,6 +20,7 @@ It combines:
 ## Running Locally
 
 ```bash
+git clone https://github.com/opeyemi406/signalrecall.git
 cd signalrecall
 npm install
 npm run dev
