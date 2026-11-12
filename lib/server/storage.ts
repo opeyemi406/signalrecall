@@ -91,14 +91,13 @@ export async function upsertUser(data: {
 }
 
 // ---------------------------------------------------------------------------
-// Signals Storage (Active & Verified — Strictly Isolated by User)
+// Signals Storage (Active & Verified — Scoped to Signed-in User)
 // ---------------------------------------------------------------------------
 
 export async function getStoredSignals(userId?: string): Promise<Signal[]> {
   const all = await readJsonFile<Signal[]>(SIGNALS_FILE, []);
   if (!userId) return all;
-  // Return user's signals, and preserve unassigned legacy signals
-  return all.filter((s) => !s.userId || s.userId === userId);
+  return all.filter((s) => s.userId === userId);
 }
 
 export async function saveSignal(signal: Signal, userId?: string): Promise<Signal> {
@@ -120,7 +119,6 @@ export async function updateSignal(
   const idx = list.findIndex((s) => s.id === id);
   if (idx === -1) return null;
 
-  // Server-side ownership check: cannot modify another user's signal
   if (userId && list[idx].userId && list[idx].userId !== userId) {
     return null;
   }
@@ -155,13 +153,13 @@ export async function getResolvedSignals(userId?: string): Promise<ResolvedSigna
 }
 
 // ---------------------------------------------------------------------------
-// Alerts Storage (Strictly Isolated by User)
+// Alerts Storage (Scoped to Signed-in User)
 // ---------------------------------------------------------------------------
 
 export async function getStoredAlerts(userId?: string): Promise<Alert[]> {
   const all = await readJsonFile<Alert[]>(ALERTS_FILE, []);
   if (!userId) return all;
-  return all.filter((a) => !a.userId || a.userId === userId);
+  return all.filter((a) => a.userId === userId);
 }
 
 export async function saveAlert(alert: Alert, userId?: string): Promise<Alert> {
@@ -179,9 +177,8 @@ export async function toggleStoredAlert(id: string, userId?: string): Promise<Al
   const idx = list.findIndex((a) => a.id === id);
   if (idx === -1) return null;
 
-  // Server-side ownership check
   if (userId && list[idx].userId && list[idx].userId !== userId) {
-    return null; // forbidden
+    return null;
   }
 
   list[idx].enabled = !list[idx].enabled;
@@ -194,9 +191,8 @@ export async function deleteStoredAlert(id: string, userId?: string): Promise<bo
   const target = list.find((a) => a.id === id);
   if (!target) return false;
 
-  // Server-side ownership check
   if (userId && target.userId && target.userId !== userId) {
-    return false; // forbidden
+    return false;
   }
 
   const next = list.filter((a) => a.id !== id);
@@ -205,13 +201,13 @@ export async function deleteStoredAlert(id: string, userId?: string): Promise<bo
 }
 
 // ---------------------------------------------------------------------------
-// Memories Storage (Walrus local cache — Strictly Isolated by User)
+// Memories Storage (Scoped to Signed-in User)
 // ---------------------------------------------------------------------------
 
 export async function getStoredMemories(userId?: string): Promise<Memory[]> {
   const all = await readJsonFile<Memory[]>(MEMORIES_FILE, []);
   if (!userId) return all;
-  return all.filter((m) => !m.userId || m.userId === userId);
+  return all.filter((m) => m.userId === userId);
 }
 
 export async function saveMemory(memory: Memory, userId?: string): Promise<Memory> {

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Clock, Activity, Bell } from "lucide-react";
+import { Clock } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { timeAgo } from "@/lib/time";
 import type { Alert } from "@/lib/types";
@@ -37,7 +37,6 @@ export function RecentAlertsCard() {
 
       {recent.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center space-y-2">
-          <Bell className="size-5 text-fg-3 mx-auto" />
           <p className="text-xs text-fg-2">
             {loading ? "Loading alerts..." : "No alerts configured. Add alerts in the Alerts tab to track market events."}
           </p>
@@ -50,9 +49,6 @@ export function RecentAlertsCard() {
               className="glass-pill flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 hover:bg-white/[0.06] transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="glass-pill flex size-8 shrink-0 items-center justify-center rounded-full text-fg-2">
-                  <Activity className="size-3.5 text-electric" />
-                </div>
                 <div className="min-w-0">
                   <div className="truncate text-xs font-medium text-white">
                     {alert.title}

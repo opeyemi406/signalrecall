@@ -10,6 +10,7 @@ export default auth((req) => {
 
   const protectedPrefixes = [
     "/dashboard",
+    "/markets",
     "/signals",
     "/history",
     "/track-record",

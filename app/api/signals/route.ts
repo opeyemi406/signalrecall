@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
     // Ingest signal creation memory into Walrus Memory
     const fact = `Signal created: ${asset} ${direction} at entry $${entryPrice}, target $${finalTarget}, invalidation $${finalInvalidation}. Rationale: ${rationale || "Technical breakout"}.`;
-    const memwalRes = await rememberSignalMemory(fact);
+    const memwalRes = await rememberSignalMemory(fact, userId);
 
     const signal: Signal = {
       id: `sig-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

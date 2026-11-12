@@ -2,12 +2,9 @@
 
 import * as React from "react";
 import {
-  Sparkles,
-  Database,
   Plus,
   RefreshCw,
   KeyRound,
-  ShieldCheck,
 } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -122,7 +119,7 @@ export default function MemoryBankPage() {
               {status.configured ? "Relayer Live" : "Awaiting Credentials"}
             </span>
           </div>
-          <p className="text-sm text-fg-2 mt-0.5">
+          <p className="text-[15px] text-fg-2 mt-1">
             Verifiable, encrypted AI agent context persistence powered by official Walrus Memory SDK (@mysten-incubation/memwal)
           </p>
         </div>
@@ -262,10 +259,9 @@ export default function MemoryBankPage() {
         </div>
 
         {memories.length === 0 ? (
-          <div className="py-16 text-center text-xs text-fg-3 space-y-2">
-            <Database className="size-6 text-fg-3 mx-auto" />
-            <p className="text-white font-medium">No memories stored yet</p>
-            <p className="text-fg-2 max-w-sm mx-auto">
+          <div className="py-16 text-center text-sm text-fg-3 space-y-2">
+            <p className="text-white font-medium text-base">No memories stored yet</p>
+            <p className="text-fg-2 max-w-md mx-auto leading-relaxed">
               Store patterns, catalyst reactions, and verified trade settlements. The AI recalls these memories to ground future analysis.
             </p>
           </div>
@@ -274,20 +270,20 @@ export default function MemoryBankPage() {
             {memories.map((m) => (
               <div
                 key={m.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3 hover:bg-white/[0.05] transition-colors"
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3 hover:bg-white/[0.05] transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-electric uppercase tracking-wider">
                     {m.kind} {m.asset ? `· ${m.asset}` : ""}
                   </span>
-                  <span className="text-[11px] text-fg-3 font-mono">
+                  <span className="text-xs text-fg-3 font-mono">
                     {shortDate(m.storedAt)}
                   </span>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-white">{m.title}</h4>
-                  <p className="text-xs text-fg-2 mt-1 leading-relaxed">{m.body}</p>
+                  <h4 className="text-base font-semibold text-white">{m.title}</h4>
+                  <p className="text-sm text-fg-2 mt-1 leading-relaxed">{m.body}</p>
                 </div>
 
                 {m.outcome && (
@@ -300,10 +296,7 @@ export default function MemoryBankPage() {
                   <span className="text-fg-3 font-mono truncate max-w-[200px]">
                     Vault: Walrus Memory
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[#19D49A]">
-                    <ShieldCheck className="size-3" />
-                    <span>Verifiable</span>
-                  </span>
+                  <span className="text-fg-2">Stored</span>
                 </div>
               </div>
             ))}

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { GlassCard } from "@/components/GlassCard";
 import { CoinIcon } from "@/components/CoinIcon";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Signal } from "@/lib/types";
 
 export function AIOpportunitiesCard() {
@@ -35,15 +35,14 @@ export function AIOpportunitiesCard() {
       <div className="mt-4 space-y-2.5">
         {active.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center space-y-2">
-            <Sparkles className="size-5 text-electric mx-auto" />
-            <p className="text-xs text-fg-2">
+            <p className="text-sm text-fg-2">
               {loading ? "Checking active signals..." : "No active calls recorded. Create a live signal in the Trading Terminal."}
             </p>
             <Link
               href="/signals"
-              className="inline-flex items-center gap-1 text-xs text-electric hover:underline font-medium pt-1"
+              className="inline-flex items-center gap-1 text-sm text-electric hover:underline font-medium pt-1"
             >
-              Open Trading Terminal <ArrowRight className="size-3" />
+              Open Trading Terminal <ArrowRight className="size-3.5" />
             </Link>
           </div>
         ) : (

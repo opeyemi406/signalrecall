@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BarChart2, TrendingUp, Flame, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { StatCard } from "@/components/cards/StatCard";
 import { AISummaryCard } from "@/components/cards/AISummaryCard";
 import { AIOpportunitiesCard } from "@/components/cards/AIOpportunitiesCard";
@@ -42,7 +42,6 @@ export default function DashboardPage() {
     fetchSignals();
     fetchSui();
 
-    // Live telemetry ticker every 15 seconds
     const interval = setInterval(() => {
       fetchSignals();
       fetchSui();
@@ -52,7 +51,9 @@ export default function DashboardPage() {
   }, []);
 
   const activeSignals = signals.filter((s) => s.status === "IN_PROGRESS");
-  const resolvedSignals = signals.filter((s) => s.status === "TARGET_REACHED" || s.status === "INVALIDATED");
+  const resolvedSignals = signals.filter(
+    (s) => s.status === "TARGET_REACHED" || s.status === "INVALIDATED"
+  );
 
   const totalPnl = resolvedSignals.reduce((acc, s) => {
     const isLong = s.direction === "LONG";
@@ -62,6 +63,17 @@ export default function DashboardPage() {
     return acc + pnl;
   }, 0);
 
+  const startDateLabel = React.useMemo(() => {
+    const iso =
+      signals.length > 0
+        ? signals[signals.length - 1].createdAt
+        : new Date().toISOString();
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }, [signals]);
+
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -70,8 +82,8 @@ export default function DashboardPage() {
           <h1 className="text-[28px] font-semibold tracking-tight text-white">
             Overview
           </h1>
-          <p className="text-sm text-fg-2 mt-0.5">
-            Objective 24-hour verification dashboard &amp; decentralized memory
+          <p className="text-[15px] text-fg-2 mt-1">
+            24-hour verification dashboard &amp; Walrus memory
           </p>
         </div>
 
@@ -98,31 +110,42 @@ export default function DashboardPage() {
       {/* Top Row: 3 Real Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         <StatCard
-          icon={<BarChart2 className="size-4" />}
           label="Tracked Calls"
           value={signals.length}
-          suffix=" Total"
+          displayText={signals.length > 0 ? undefined : `Tracking since ${startDateLabel}`}
+          suffix=" Recorded"
           deltaLabel={tatumConfigured ? "Live Tatum Feed" : "Tatum Key Required"}
           deltaPositive={tatumConfigured}
         />
 
         <StatCard
-          icon={<TrendingUp className="size-4" />}
-          label={`Verified P&L (${resolvedSignals.length} Resolved)`}
+          label="Settled P&L"
           value={Math.abs(totalPnl)}
-          prefix={totalPnl >= 0 ? "+$" : "-$"}
+          displayText={
+            resolvedSignals.length > 0 ? undefined : `Since ${startDateLabel}`
+          }
+          prefix={totalPnl >= 0 ? "+" : "-"}
+          suffix="%"
           decimals={2}
-          deltaLabel={resolvedSignals.length > 0 ? `${totalPnl.toFixed(2)}% net` : "0 verified calls"}
+          deltaLabel={
+            resolvedSignals.length > 0
+              ? `${resolvedSignals.length} settled`
+              : "24h window active"
+          }
           deltaPositive={totalPnl >= 0}
         />
 
         <StatCard
-          icon={<Flame className="size-4" />}
           label="Active 24h Signals"
           value={activeSignals.length}
+          displayText={activeSignals.length > 0 ? undefined : "Ready to record"}
           suffix=" Active"
-          deltaLabel={`${activeSignals.length} awaiting settlement`}
-          deltaPositive={activeSignals.length > 0}
+          deltaLabel={
+            activeSignals.length > 0
+              ? `${activeSignals.length} awaiting settlement`
+              : "Live terminal ready"
+          }
+          deltaPositive={true}
         />
       </div>
 
@@ -141,8 +164,8 @@ export default function DashboardPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-white">Live Chart &amp; AI Scanner</h3>
-            <p className="text-xs text-fg-2">Real-time candlesticks with 1-click quantitative AI technical analysis</p>
+            <h3 className="text-lg font-semibold text-white">Live Chart &amp; AI Scanner</h3>
+            <p className="text-sm text-fg-2">Real-time candlesticks with 1-click quantitative AI technical analysis</p>
           </div>
         </div>
         <CandlestickChart symbol="BTC" />

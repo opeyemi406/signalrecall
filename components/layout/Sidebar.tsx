@@ -9,7 +9,7 @@ import {
   Terminal,
   PieChart,
   Radio,
-  Sparkles,
+  Database,
   Clock,
 } from "lucide-react";
 import { LiquidHighlight } from "@/components/LiquidHighlight";
@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { href: "/signals", label: "Signals", icon: Terminal },
   { href: "/track-record", label: "Track Record", icon: PieChart },
   { href: "/alerts", label: "Alerts", icon: Radio },
-  { href: "/memory", label: "Memory Bank", icon: Sparkles },
+  { href: "/memory", label: "Memory Bank", icon: Database },
   { href: "/history", label: "History", icon: Clock },
 ];
 

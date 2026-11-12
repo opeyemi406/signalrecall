@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchTatumRateResult, isTatumConfigured } from "@/lib/server/tatum";
 import { recallSignalMemories } from "@/lib/server/walrus";
 import { analyzeCandleSeries, type TechnicalIndicators } from "@/lib/server/technical";
+import { auth } from "@/lib/auth";
 import type { Candle, CoinSymbol } from "@/lib/types";
 
 const KUCOIN_MAP: Record<string, string> = {
@@ -98,8 +99,9 @@ export async function POST(req: Request) {
     const technicals = analyzeCandleSeries(candles);
 
     // 4. Query Walrus Memory for historical precedents
-    const namespace = process.env.MEMWAL_NAMESPACE || "signalrecall";
-    const walrusRecall = await recallSignalMemories(`${symbol} setup pattern`, 2);
+    const session = await auth();
+    const userId = session?.user?.id;
+    const walrusRecall = await recallSignalMemories(`${symbol} setup pattern`, 2, 0.8, userId);
     const walrusSnippet = walrusRecall.results.length > 0 ? walrusRecall.results[0].text : null;
 
     // 5. Query OpenRouter / DeepSeek with the calculated indicators
@@ -111,7 +113,7 @@ export async function POST(req: Request) {
     if (openrouterKey) {
       const systemPrompt = `You are SignalRecall's Lead AI Technical Quantitative Analyst.
 You analyze financial candlestick series using standard technical indicators (RSI, Moving Averages, MACD, Bollinger Bands, and ATR).
-Your job is to provide objective, non-hallucinated 24-hour trade setups strictly grounded in mathematical calculations.
+Your job is to provide objective, data-grounded 24-hour trade setups strictly grounded in mathematical calculations.
 
 You MUST reply with a VALID JSON object (no markdown code blocks, no backticks, just raw JSON) matching this schema:
 {

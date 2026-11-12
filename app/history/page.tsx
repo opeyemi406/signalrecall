@@ -5,20 +5,14 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Database,
-  BarChart2,
-  TrendingUp,
-  ShieldCheck,
   Search,
   RefreshCw,
 } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { StatCard } from "@/components/cards/StatCard";
-import { LiquidHighlight } from "@/components/LiquidHighlight";
 import { CoinIcon } from "@/components/CoinIcon";
 import { Button } from "@/components/ui/button";
 import { shortDate } from "@/lib/time";
-import { formatUsd, formatPct, cn } from "@/lib/utils";
 import type { Signal, SignalStatus } from "@/lib/types";
 
 function StatusPill({ status }: { status: SignalStatus }) {
@@ -74,7 +68,8 @@ export default function HistoryPage() {
   );
   const wins = resolved.filter((s) => s.status === "TARGET_REACHED").length;
   const losses = resolved.filter((s) => s.status === "INVALIDATED").length;
-  const winRate = resolved.length > 0 ? (wins / resolved.length) * 100 : 0;
+  const hasTenSettled = resolved.length >= 10;
+  const winRate = hasTenSettled ? (wins / resolved.length) * 100 : 0;
 
   const totalPnl = resolved.reduce((acc, s) => {
     const isLong = s.direction === "LONG";
@@ -83,6 +78,18 @@ export default function HistoryPage() {
       : ((s.entry - s.target) / s.entry) * 100;
     return acc + pnl;
   }, 0);
+
+  const startDateLabel = React.useMemo(() => {
+    const iso =
+      signals.length > 0
+        ? signals[signals.length - 1].createdAt
+        : new Date().toISOString();
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, [signals]);
 
   const filteredSignals = signals.filter((row) => {
     const matchesFilter =
@@ -112,7 +119,7 @@ export default function HistoryPage() {
             History
           </h1>
           <p className="text-sm text-fg-2 mt-0.5">
-            24-hour objective verification ledger — resolved and pending calls
+            24-hour verification ledger — settled and active calls
           </p>
         </div>
 
@@ -127,36 +134,54 @@ export default function HistoryPage() {
         </Button>
       </div>
 
-      {/* 3 Summary Stat Cards: Win Rate, Total P&L, 24h Accuracy */}
+      {/* 3 Summary Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         <StatCard
-          icon={<BarChart2 className="size-4" />}
-          label={`Win Rate (${wins}W / ${losses}L)`}
-          value={resolved.length > 0 ? winRate : 0}
-          suffix={resolved.length > 0 ? "%" : " (No calls)"}
+          label="Win Rate"
+          value={winRate}
+          displayText={
+            hasTenSettled
+              ? undefined
+              : resolved.length > 0
+              ? `${resolved.length} settled since ${startDateLabel}`
+              : `Tracking since ${startDateLabel}`
+          }
+          suffix="%"
           decimals={1}
-          deltaLabel={resolved.length > 0 ? `${resolved.length} resolved calls` : "Awaiting verifications"}
-          deltaPositive={winRate >= 50}
+          deltaLabel={
+            hasTenSettled
+              ? `${wins}W / ${losses}L`
+              : "Available after 10 settled"
+          }
+          deltaPositive={true}
         />
 
         <StatCard
-          icon={<TrendingUp className="size-4" />}
-          label={`Total P&L (${resolved.length} Resolved)`}
+          label="Total P&L"
           value={Math.abs(totalPnl)}
-          prefix={totalPnl >= 0 ? "+$" : "-$"}
+          displayText={
+            resolved.length > 0 ? undefined : `Since ${startDateLabel}`
+          }
+          prefix={totalPnl >= 0 ? "+" : "-"}
+          suffix="%"
           decimals={2}
-          deltaLabel={resolved.length > 0 ? `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}% net` : "0 verified calls"}
+          deltaLabel={
+            resolved.length > 0
+              ? `${resolved.length} settled calls`
+              : "Awaiting 24h settlement"
+          }
           deltaPositive={totalPnl >= 0}
         />
 
         <StatCard
-          icon={<ShieldCheck className="size-4" />}
-          label="24h Accuracy"
-          value={resolved.length > 0 ? winRate : 0}
-          suffix={resolved.length > 0 ? "%" : " (0/0)"}
-          decimals={1}
-          deltaLabel={resolved.length > 0 ? "Tatum 24h Verified" : "Objective verifications"}
-          deltaPositive={resolved.length > 0}
+          label="Ledger Start"
+          displayText={
+            signals.length > 0
+              ? `${signals.length} recorded`
+              : `Active since ${startDateLabel}`
+          }
+          deltaLabel="Tatum 24h Settlement"
+          deltaPositive={true}
         />
       </div>
 
@@ -179,10 +204,10 @@ export default function HistoryPage() {
           {/* Segmented Filter Pills */}
           <div className="inline-flex items-center rounded-full bg-white/[0.04] border border-white/10 p-1 self-start sm:self-auto overflow-x-auto max-w-full">
             {[
-              { id: "ALL", label: `All (${signals.length})` },
-              { id: "TARGET_REACHED", label: `Won (${wins})` },
-              { id: "INVALIDATED", label: `Lost (${losses})` },
-              { id: "IN_PROGRESS", label: `Pending (${signals.length - resolved.length})` },
+              { id: "ALL", label: "All" },
+              { id: "TARGET_REACHED", label: "Target Reached" },
+              { id: "INVALIDATED", label: "Invalidated" },
+              { id: "IN_PROGRESS", label: "In Progress" },
             ].map((tab) => {
               const active = filter === tab.id;
               return (
@@ -206,65 +231,58 @@ export default function HistoryPage() {
         {/* Signals Table / List */}
         {filteredSignals.length === 0 ? (
           <div className="py-16 text-center text-xs text-fg-3 space-y-2">
-            <ShieldCheck className="size-6 text-fg-3 mx-auto" />
-            <p className="text-white font-medium">No verified signal records in ledger</p>
+            <p className="text-white font-medium">No signal records matching filter</p>
             <p className="text-fg-2 max-w-sm mx-auto">
-              SignalRecall strictly displays genuine verified outcomes. Record calls in the Trading Terminal; once the 24h verification window completes, settled onchain results will appear here.
+              Record calls in the Trading Terminal; once the 24h verification window completes, settled results appear here.
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredSignals.map((row) => {
-              const isWin = row.status === "TARGET_REACHED";
-              const isLoss = row.status === "INVALIDATED";
-
-              return (
-                <div
-                  key={row.id}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-white/[0.05] transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <CoinIcon symbol={row.asset} size={36} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white">
-                          {row.pair}
-                        </span>
-                        <span
-                          className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${
-                            row.direction === "LONG"
-                              ? "bg-[#19D49A]/15 text-[#19D49A]"
-                              : "bg-[#FF4D5E]/15 text-[#FF4D5E]"
-                          }`}
-                        >
-                          {row.direction}
-                        </span>
-                        <StatusPill status={row.status} />
-                      </div>
-                      <div className="text-xs text-fg-2 num mt-1">
-                        Entry: ${row.entry.toLocaleString()} · Target: ${row.target.toLocaleString()} · Invalidation: ${row.invalidation.toLocaleString()}
-                      </div>
+            {filteredSignals.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-white/[0.05] transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <CoinIcon symbol={row.asset} size={36} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-white">
+                        {row.pair}
+                      </span>
+                      <span
+                        className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${
+                          row.direction === "LONG"
+                            ? "bg-[#19D49A]/15 text-[#19D49A]"
+                            : "bg-[#FF4D5E]/15 text-[#FF4D5E]"
+                        }`}
+                      >
+                        {row.direction}
+                      </span>
+                      <StatusPill status={row.status} />
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between md:justify-end gap-4 text-xs num border-t md:border-t-0 pt-2 md:pt-0 border-white/5">
-                    <div className="text-left md:text-right">
-                      <div className="text-fg-3 text-[11px]">Timestamp</div>
-                      <div className="text-fg-2">{shortDate(row.createdAt)}</div>
+                    <div className="text-xs text-fg-2 num mt-1">
+                      Entry: ${row.entry.toLocaleString()} · Target: ${row.target.toLocaleString()} · Invalidation: ${row.invalidation.toLocaleString()}
                     </div>
-
-                    {row.memoryAudit?.memoryIds?.[0] && (
-                      <div className="inline-flex items-center gap-1 text-[11px] text-electric bg-electric/10 border border-electric/20 px-2.5 py-1 rounded-full">
-                        <Database className="size-3" />
-                        <span className="truncate max-w-[100px]">
-                          {row.memoryAudit.memoryIds[0]}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="flex items-center justify-between md:justify-end gap-4 text-xs num border-t md:border-t-0 pt-2 md:pt-0 border-white/5">
+                  <div className="text-left md:text-right">
+                    <div className="text-fg-3 text-[11px]">Timestamp</div>
+                    <div className="text-fg-2">{shortDate(row.createdAt)}</div>
+                  </div>
+
+                  {row.memoryAudit?.memoryIds?.[0] && (
+                    <div className="inline-flex items-center gap-1 text-[11px] text-electric bg-electric/10 border border-electric/20 px-2.5 py-1 rounded-full">
+                      <span className="truncate max-w-[100px]">
+                        {row.memoryAudit.memoryIds[0]}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </GlassCard>

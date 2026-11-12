@@ -4,7 +4,7 @@
    SignalRecall design tokens
    ───────────────────────────────────────────────────────────── */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 
   --color-ink: #05060d;
   --color-ink-2: #0a0c18;
@@ -25,8 +25,8 @@
   --color-magenta: #e040fb;
 
   --color-fg: #ffffff;
-  --color-fg-2: rgb(255 255 255 / 0.55);
-  --color-fg-3: rgb(255 255 255 / 0.35);
+  --color-fg-2: rgb(255 255 255 / 0.72);
+  --color-fg-3: rgb(255 255 255 / 0.50);
   --color-line: rgb(255 255 255 / 0.08);
 
   --radius-card: 22px;
@@ -56,6 +56,9 @@
     background: var(--color-ink);
     color: var(--color-fg);
     font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.65;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
@@ -202,7 +205,7 @@
     linear-gradient(180deg, #05060d 0%, #0a0a22 40%, #1a1466 100%);
 }
 .ring-conic {
-  background: conic-gradient(from 0deg, #2f6bff, #ff4d5e, #19d49a, #2f6bff);
+  background: conic-gradient(from 0deg, #2f6bff, #6d5ef5, #2f6bff);
 }
 
 /* Reduced motion */

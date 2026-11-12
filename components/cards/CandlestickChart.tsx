@@ -4,15 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ChevronDown,
-  Calendar,
   RefreshCw,
-  Sparkles,
   ArrowUpRight,
   ArrowDownRight,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Database,
   ExternalLink,
 } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
@@ -228,11 +224,6 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
         }),
       });
 
-      if (res.status === 401) {
-        setSignalError("Please sign in with Google to record signals to your verification ledger.");
-        return;
-      }
-
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to commit signal");
@@ -278,9 +269,9 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
             type="button"
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="glass-pill inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white/[0.12] transition-colors bg-gradient-to-r from-electric/25 to-purple-500/25 border border-electric/40 shadow-[0_0_18px_rgba(47,107,255,0.3)]"
+            className="glass-pill inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white/[0.12] transition-colors border border-electric/40"
           >
-            <Sparkles className={cn("size-3.5 text-electric", analyzing && "animate-spin")} />
+            {analyzing && <RefreshCw className="size-3.5 text-electric animate-spin" />}
             <span>{analyzing ? "Scanning Candles..." : "Analyze Chart with AI"}</span>
           </button>
 
@@ -291,7 +282,6 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
                 type="button"
                 className="glass-pill inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white/[0.08] transition-colors"
               >
-                <Calendar className="size-3.5 text-fg-2" />
                 <span>{timeframe}</span>
                 <ChevronDown className="size-3 text-fg-2" />
               </button>
@@ -322,7 +312,7 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
         />
         {noData && !loading && (
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-xs text-fg-2">
-            Chart data unavailable for {symbol}.
+            Price feed unavailable, retrying
           </div>
         )}
       </div>
@@ -332,18 +322,13 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
         <div className="mt-4 rounded-2xl border border-white/15 bg-gradient-to-b from-white/[0.08] to-white/[0.02] p-4.5 sm:p-5 backdrop-blur-xl space-y-4 animate-in fade-in-50 duration-200">
           {/* Header Row */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-7 items-center justify-center rounded-full bg-electric/20 text-electric">
-                <Sparkles className="size-3.5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white">
-                  AI Technical Chart Intelligence
-                </h4>
-                <p className="text-[11px] text-fg-2">
-                  Scanned {symbol} ({timeframe}) candles with RSI, MACD, EMAs &amp; Bollinger Bands
-                </p>
-              </div>
+            <div>
+              <h4 className="text-sm font-semibold text-white">
+                AI Technical Chart Intelligence
+              </h4>
+              <p className="text-[11px] text-fg-2">
+                Scanned {symbol} ({timeframe}) candles with RSI, MACD, EMAs &amp; Bollinger Bands
+              </p>
             </div>
 
             {analysis && (
@@ -373,14 +358,6 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
                 <AlertCircle className="size-4 shrink-0 text-rose-400" />
                 <span>{signalError}</span>
               </div>
-              {signalError.includes("sign in") && (
-                <Link
-                  href="/auth/signin"
-                  className="rounded-lg bg-white/10 px-2.5 py-1 text-white hover:bg-white/20 text-[11px] font-medium"
-                >
-                  Sign In
-                </Link>
-              )}
             </div>
           )}
 
@@ -489,7 +466,6 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
               {/* Walrus Memory Citation */}
               {analysis.walrusMemoryCitation && (
                 <div className="flex items-center gap-2 rounded-xl bg-electric/10 border border-electric/25 px-3 py-2 text-xs text-electric">
-                  <Database className="size-3.5 shrink-0" />
                   <span>
                     <strong>Walrus Memory Citation:</strong> {analysis.walrusMemoryCitation}
                   </span>
@@ -498,8 +474,7 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
 
               {/* 1-Click Action Button */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10">
-                <div className="text-[11px] text-fg-3 flex items-center gap-1.5">
-                  <ShieldCheck className="size-3.5 text-electric" />
+                <div className="text-[11px] text-fg-3">
                   <span>24-Hour Settlement Ledger · Objective Verification via Tatum</span>
                 </div>
 
@@ -507,14 +482,13 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
                   type="button"
                   onClick={handleRegisterSignal}
                   disabled={registeringSignal || Boolean(signalSuccess)}
-                  className="btn-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold text-white shadow-[0_0_20px_rgba(47,107,255,0.4)] disabled:opacity-50"
+                  className="btn-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  <Sparkles className="size-3.5" />
                   <span>
                     {registeringSignal
                       ? "Recording to Walrus..."
                       : signalSuccess
-                      ? "✓ Signal Committed"
+                      ? "Signal Committed"
                       : "Turn Into 24h Signal"}
                   </span>
                 </button>

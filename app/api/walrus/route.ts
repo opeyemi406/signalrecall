@@ -26,12 +26,12 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
-    const semanticResults = await recallSignalMemories(query);
+    const semanticResults = await recallSignalMemories(query, 5, 0.8, userId);
     return NextResponse.json(semanticResults);
   }
 
   const memories = await getStoredMemories(userId);
-  const status = getMemWalStatus();
+  const status = getMemWalStatus(userId);
 
   return NextResponse.json({
     count: memories.length,
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
 
     // Ingest into Walrus Memory SDK (@mysten-incubation/memwal)
     const memoryFact = `[${kind?.toUpperCase() || "PATTERN"}] ${title}${asset ? ` (${asset})` : ""}: ${text}${outcome ? ` Outcome: ${outcome}` : ""}`;
-    const memwalRes = await rememberSignalMemory(memoryFact);
+    const memwalRes = await rememberSignalMemory(memoryFact, userId);
 
     if (!memwalRes.success) {
       return NextResponse.json(

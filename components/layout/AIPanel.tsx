@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, X, Sparkles, Send, TrendingUp, BarChart3 } from "lucide-react";
+import { RotateCcw, X, Send } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { askAssistant } from "@/lib/ai";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,9 @@ export interface AIPanelProps {
 }
 
 const SUGGESTIONS = [
-  { label: "Summarize today's market sentiment", icon: TrendingUp },
-  { label: "Analyze BTC Trend", icon: TrendingUp },
-  { label: "What do you remember about SOL?", icon: BarChart3 },
+  "Summarize today's market sentiment",
+  "Analyze BTC Trend",
+  "What do you remember about SOL?",
 ];
 
 function parseInlineFormatting(str: string): React.ReactNode[] {
@@ -164,10 +164,25 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* Multicolor conic ring avatar with sparkle */}
-          <div className="ring-conic relative flex size-10 items-center justify-center rounded-full p-[2px] shadow-[0_0_24px_rgba(47,107,255,0.45)]">
+          {/* SignalRecall logomark in a dark circle with a thin conic ring */}
+          <div className="ring-conic relative flex size-9 items-center justify-center rounded-full p-[1.5px]">
             <div className="flex size-full items-center justify-center rounded-full bg-[#070814]">
-              <Sparkles className="size-4 text-white" />
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 28 28"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z"
+                  fill="#2F6BFF"
+                />
+                <path
+                  d="M14 15.5L17.6 22H10.4L14 15.5Z"
+                  fill="#6D5EF5"
+                />
+              </svg>
             </div>
           </div>
           <div>
@@ -218,7 +233,7 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
         </div>
 
         {messages.length === 0 ? (
-          <p className="text-xs leading-relaxed text-fg-2 pt-2">
+          <p className="text-sm leading-relaxed text-fg-2 pt-2">
             Ask about any asset, chart setup, or upcoming macro event. Every answer recalls past market reactions and verified outcomes stored on Walrus.
           </p>
         ) : (
@@ -227,7 +242,7 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
               <div
                 key={m.id}
                 className={cn(
-                  "rounded-2xl p-3.5 text-xs leading-relaxed",
+                  "rounded-2xl p-3.5 text-sm leading-relaxed",
                   m.role === "user"
                     ? "ml-6 bg-white/12 text-white border border-white/15"
                     : "mr-2 glass text-white/90"
@@ -257,7 +272,7 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
 
             {loading && (
               <div className="glass rounded-2xl p-3.5 text-xs text-fg-2 flex items-center gap-2">
-                <Sparkles className="size-3.5 text-electric animate-spin" />
+                <RotateCcw className="size-3.5 text-electric animate-spin" />
                 <span>Analyzing live market data & Walrus memory…</span>
               </div>
             )}
@@ -268,20 +283,16 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
       {/* Bottom Suggestion Chips + Input Pill */}
       <div className="space-y-3 pt-2 min-w-0 max-w-full">
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar min-w-0 max-w-full">
-          {SUGGESTIONS.map((s) => {
-            const Icon = s.icon;
-            return (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => handleSend(s.label)}
-                className="glass-pill shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium text-white/85 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <Icon className="size-3 text-electric" />
-                <span>{s.label}</span>
-              </button>
-            );
-          })}
+          {SUGGESTIONS.map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => handleSend(label)}
+              className="glass-pill shrink-0 inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-medium text-white/85 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
 
         <form

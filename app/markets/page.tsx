@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, ArrowUpRight, ArrowDownRight, KeyRound, RefreshCw, Newspaper, ExternalLink } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpRight, ArrowDownRight, KeyRound, RefreshCw, ExternalLink } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { LiquidHighlight } from "@/components/LiquidHighlight";
 import { CoinIcon } from "@/components/CoinIcon";
@@ -209,10 +209,7 @@ export default function MarketsPage() {
       {/* Live Market News & Catalysts */}
       <GlassCard variant="default" className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Newspaper className="size-4 text-electric" />
-            <h2 className="text-base font-semibold text-white">Live Market Wire & Institutional Catalysts</h2>
-          </div>
+          <h2 className="text-base font-semibold text-white">Live Market Wire &amp; Catalysts</h2>
           <span className="text-[11px] font-mono text-fg-3 uppercase tracking-wider">
             Powered by Finnhub API
           </span>

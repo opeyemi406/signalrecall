@@ -23,25 +23,31 @@ export function isMemWalConfigured(): boolean {
   return Boolean(key && accountId && serverUrl);
 }
 
-export function getMemWalStatus(): MemWalStatus {
+export function getUserNamespace(userId?: string): string {
+  const base = process.env.MEMWAL_NAMESPACE || "signalrecall";
+  return userId ? `${base}:${userId}` : base;
+}
+
+export function getMemWalStatus(userId?: string): MemWalStatus {
   const configured = isMemWalConfigured();
   return {
     configured,
     serverUrl: process.env.MEMWAL_SERVER_URL || undefined,
     accountId: process.env.MEMWAL_ACCOUNT_ID || undefined,
-    namespace: process.env.MEMWAL_NAMESPACE || undefined,
+    namespace: configured ? getUserNamespace(userId) : undefined,
   };
 }
 
-let memwalClientInstance: ReturnType<typeof MemWal.create> | null = null;
+const memwalClients = new Map<string, ReturnType<typeof MemWal.create>>();
 
-export function getMemWalClient() {
-  if (memwalClientInstance) return memwalClientInstance;
+export function getMemWalClient(userId?: string) {
+  const namespace = getUserNamespace(userId);
+  const existing = memwalClients.get(namespace);
+  if (existing) return existing;
 
   const key = process.env.MEMWAL_DELEGATE_KEY || process.env.MEMWAL_PRIVATE_KEY;
   const accountId = process.env.MEMWAL_ACCOUNT_ID;
   const serverUrl = process.env.MEMWAL_SERVER_URL;
-  const namespace = process.env.MEMWAL_NAMESPACE || "signalrecall";
 
   if (!key || !accountId || !serverUrl) {
     throw new Error(
@@ -49,59 +55,67 @@ export function getMemWalClient() {
     );
   }
 
-  memwalClientInstance = MemWal.create({
+  const client = MemWal.create({
     key,
     accountId,
     serverUrl,
     namespace,
   });
 
-  return memwalClientInstance;
+  memwalClients.set(namespace, client);
+  return client;
 }
 
 /**
  * Remember an observation, pattern, or verification receipt using Walrus Memory
+ * Scoped to the signed-in user's Walrus namespace when userId is provided.
  */
 export async function rememberSignalMemory(
-  text: string
-): Promise<{ success: boolean; memoryText: string; error?: string }> {
+  text: string,
+  userId?: string
+): Promise<{ success: boolean; memoryText: string; namespace: string; error?: string }> {
+  const namespace = getUserNamespace(userId);
   if (!isMemWalConfigured()) {
     return {
       success: false,
       memoryText: text,
+      namespace,
       error: "Walrus Memory unconfigured: missing MEMWAL_SERVER_URL, MEMWAL_ACCOUNT_ID, or MEMWAL_DELEGATE_KEY",
     };
   }
 
   try {
-    const client = getMemWalClient();
-    await client.rememberAndWait(text, undefined, { timeoutMs: 30_000 });
-    return { success: true, memoryText: text };
+    const client = getMemWalClient(userId);
+    await client.rememberAndWait(text, namespace, { timeoutMs: 30_000 });
+    return { success: true, memoryText: text, namespace };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, memoryText: text, error: msg };
+    return { success: false, memoryText: text, namespace, error: msg };
   }
 }
 
 /**
  * Semantic vector search over stored memories using Walrus Memory
+ * Scoped to the signed-in user's Walrus namespace when userId is provided.
  */
 export async function recallSignalMemories(
   query: string,
   topK = 5,
-  maxDistance = 0.8
-): Promise<{ success: boolean; results: Array<{ text: string; distance?: number }>; error?: string }> {
+  _maxDistance = 0.8,
+  userId?: string
+): Promise<{ success: boolean; namespace: string; results: Array<{ text: string; distance?: number }>; error?: string }> {
+  const namespace = getUserNamespace(userId);
   if (!isMemWalConfigured()) {
     return {
       success: false,
+      namespace,
       results: [],
       error: "Walrus Memory unconfigured: missing MEMWAL_SERVER_URL, MEMWAL_ACCOUNT_ID, or MEMWAL_DELEGATE_KEY",
     };
   }
 
   try {
-    const client = getMemWalClient();
-    const namespace = process.env.MEMWAL_NAMESPACE || "signalrecall";
+    const client = getMemWalClient(userId);
     const result: RecallResult = await client.recall({
       query,
       limit: topK,
@@ -109,6 +123,7 @@ export async function recallSignalMemories(
     });
     return {
       success: true,
+      namespace,
       results: result.results.map((r) => ({
         text: r.text,
         distance: r.distance,
@@ -116,7 +131,7 @@ export async function recallSignalMemories(
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, results: [], error: msg };
+    return { success: false, namespace, results: [], error: msg };
   }
 }
 

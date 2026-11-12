@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Database, Clock, CheckCircle2, Sparkles, ChevronDown, ChevronUp, KeyRound, RefreshCw, Send } from "lucide-react";
+import { Clock, CheckCircle2, ChevronDown, ChevronUp, KeyRound, RefreshCw, Send } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { DeltaChip } from "@/components/DeltaChip";
 import { CoinIcon } from "@/components/CoinIcon";
@@ -322,7 +322,6 @@ export default function SignalsPage() {
 
         {signals.length === 0 ? (
           <div className="py-12 text-center text-xs text-fg-3 space-y-2">
-            <Sparkles className="size-6 text-fg-3 mx-auto" />
             <p>No trading signals recorded yet.</p>
             <p className="text-fg-2 max-w-sm mx-auto">
               Use the terminal above to record a live call. Signals persist to local ledger and are verified objectively after 24 hours.
@@ -399,7 +398,6 @@ export default function SignalsPage() {
                       </div>
                       {sig.memoryAudit?.summary && (
                         <div className="inline-flex items-center gap-1.5 text-fg-3 bg-white/[0.04] px-2.5 py-1 rounded-lg">
-                          <Database className="size-3 text-electric" />
                           <span>{sig.memoryAudit.summary}</span>
                         </div>
                       )}

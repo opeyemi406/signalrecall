@@ -18,3 +18,14 @@ export function shortDate(iso: string) {
     }) + " UTC"
   );
 }
+
+export function countdownTo(iso: string, now = Date.now()) {
+  const diffMs = new Date(iso).getTime() - now;
+  if (diffMs <= 0) return "Ready to settle";
+  const totalMinutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}m remaining`;
+  return `${minutes}m remaining`;
+}
+

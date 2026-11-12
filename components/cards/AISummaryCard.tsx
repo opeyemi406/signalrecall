@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Clock, Database, Sparkles, KeyRound } from "lucide-react";
+import { Clock } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 
@@ -29,12 +29,27 @@ export function AISummaryCard() {
   return (
     <GlassCard variant="blue" interactive className="flex flex-col justify-between">
       <div>
-        {/* Top Row: Ringed Orb + Title + Updated Pill */}
+        {/* Top Row: Title + Updated Pill */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="ring-conic flex size-8 items-center justify-center rounded-full p-[1.5px] shadow-[0_0_18px_rgba(47,107,255,0.45)]">
+          <div className="flex items-center gap-2.5">
+            <div className="ring-conic flex size-7 items-center justify-center rounded-full p-[1.5px]">
               <div className="size-full rounded-full bg-[#081029] flex items-center justify-center">
-                <Sparkles className="size-3.5 text-electric" />
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 28 28"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z"
+                    fill="#2F6BFF"
+                  />
+                  <path
+                    d="M14 15.5L17.6 22H10.4L14 15.5Z"
+                    fill="#6D5EF5"
+                  />
+                </svg>
               </div>
             </div>
             <h3 className="text-[16px] font-medium text-white">AI Market Intelligence</h3>
@@ -47,7 +62,7 @@ export function AISummaryCard() {
         </div>
 
         {/* Dynamic Summary */}
-        <p className="mt-4 text-xs sm:text-[13px] leading-relaxed text-fg-2">
+        <p className="mt-4 text-sm sm:text-[15px] leading-relaxed text-fg-2">
           {tatumConfigured ? (
             "Live Tatum price stream is active. 24-hour verification ledger monitors all entry, target, and invalidation levels objectively without executing financial transactions."
           ) : (
@@ -55,20 +70,15 @@ export function AISummaryCard() {
           )}
         </p>
 
-        {/* Memory Audit Badge */}
+        {/* Memory Audit Status */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] border border-white/10 px-3 py-1 text-[11px] text-white/90 num">
-            <Database className="size-3 text-electric" />
             <span className="font-medium">Walrus Memory Vault:</span>
-            <span className="text-fg-2">{memoryCount} stored decentralized blobs</span>
-            <span className="rounded-full bg-electric/20 px-1.5 py-0.2 text-[10px] text-electric">
-              Testnet
-            </span>
+            <span className="text-fg-2">{memoryCount} stored blobs</span>
           </div>
 
           {!tatumConfigured && (
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#F5A623]/10 border border-[#F5A623]/20 px-2.5 py-1 text-[11px] text-[#F5A623]">
-              <KeyRound className="size-3" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 px-2.5 py-1 text-[11px] text-fg-2">
               <span>Awaiting Tatum Key</span>
             </div>
           )}

@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     }
 
     const memories = await getStoredMemories(userId);
-    const walrusRecall = await recallSignalMemories(prompt, 3);
+    const walrusRecall = await recallSignalMemories(prompt, 3, 0.8, userId);
     const p = prompt.toLowerCase();
 
     // Find any relevant memories from storage + Walrus Memory

@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
     // Ingest the verified trade learning into Walrus Memory
     const fact = `Signal ${signal.asset} ${signal.direction}: Entry $${signal.entry}, Settled $${settledStr} -> Outcome: ${outcome.status} (${pnlStr}). Sui Checkpoint #${outcome.suiCheckpoint || "N/A"}.`;
-    const memwalRes = await rememberSignalMemory(fact);
+    const memwalRes = await rememberSignalMemory(fact, signal.userId || session?.user?.id);
 
     return NextResponse.json({
       verified: true,

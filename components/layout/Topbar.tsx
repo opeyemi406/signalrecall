@@ -7,10 +7,8 @@ import {
   Search,
   Bell,
   ChevronDown,
-  Sparkles,
+  Database,
   LogOut,
-  LogIn,
-  User as UserIcon,
   Shield,
   Layers,
 } from "lucide-react";
@@ -32,23 +30,21 @@ export function Topbar({
   onSearchChange,
   onOpenMobileAI,
 }: TopbarProps) {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const user = session?.user;
 
-  // Derive user initials
   const initials = React.useMemo(() => {
-    if (!user) return "SR";
-    if (user.name) {
+    if (user?.name) {
       const parts = user.name.trim().split(/\s+/);
       if (parts.length >= 2) {
         return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
       }
       return parts[0].slice(0, 2).toUpperCase();
     }
-    if (user.email) {
+    if (user?.email) {
       return user.email.slice(0, 2).toUpperCase();
     }
-    return "SR";
+    return "";
   }, [user]);
 
   return (
@@ -74,7 +70,9 @@ export function Topbar({
           aria-label="Open SignalRecall AI Assistant"
           className="xl:hidden glass-pill inline-flex h-9 sm:h-10 items-center gap-1.5 rounded-full px-2.5 sm:px-3.5 text-xs font-medium text-white hover:bg-white/[0.08]"
         >
-          <Sparkles className="size-3.5 text-electric shrink-0" />
+          <span className="ring-conic inline-flex size-4 items-center justify-center rounded-full p-[1px]">
+            <span className="size-full rounded-full bg-[#070814]" />
+          </span>
           <span className="hidden md:inline">AI Partner</span>
         </button>
 
@@ -87,7 +85,7 @@ export function Topbar({
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-electric" />
         </button>
 
-        {status === "authenticated" && user ? (
+        {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -95,12 +93,12 @@ export function Topbar({
                 aria-label="User account menu"
                 className="glass-pill flex items-center gap-2 rounded-full py-1 pl-1 sm:pl-1.5 pr-2 sm:pr-3 text-left hover:bg-white/[0.08] transition-colors shrink-0"
               >
-                <div className="relative size-7 sm:size-8 rounded-full overflow-hidden bg-gradient-to-tr from-[#2F6BFF] via-[#6D5EF5] to-[#19D49A] p-[1.5px] shrink-0">
+                <div className="relative size-7 sm:size-8 rounded-full overflow-hidden bg-gradient-to-tr from-[#2F6BFF] to-[#6D5EF5] p-[1.5px] shrink-0">
                   {user.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={user.image}
-                      alt={user.name || "User avatar"}
+                      alt={user.name || user.email || "Google account"}
                       className="size-full rounded-full object-cover"
                     />
                   ) : (
@@ -109,29 +107,33 @@ export function Topbar({
                     </div>
                   )}
                 </div>
-                <div className="hidden lg:block leading-tight min-w-0 max-w-[130px]">
-                  <div className="text-xs font-medium text-white truncate">
-                    {user.name || "Signal Trader"}
-                  </div>
-                  <div className="text-[10px] text-fg-3 truncate">
-                    {user.email}
-                  </div>
+                <div className="hidden lg:block leading-tight min-w-0 max-w-[140px]">
+                  {user.name && (
+                    <div className="text-xs font-medium text-white truncate">
+                      {user.name}
+                    </div>
+                  )}
+                  {user.email && (
+                    <div className="text-[10px] text-fg-3 truncate">
+                      {user.email}
+                    </div>
+                  )}
                 </div>
                 <ChevronDown className="size-3 sm:size-3.5 text-fg-2 shrink-0" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-1.5">
               <div className="px-2.5 py-2 border-b border-white/10 mb-1">
-                <div className="text-xs font-semibold text-white truncate">
-                  {user.name || "Signed-in User"}
-                </div>
-                <div className="text-[11px] text-fg-3 truncate">
-                  {user.email}
-                </div>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-[#19D49A]">
-                  <span className="size-1.5 rounded-full bg-[#19D49A]" />
-                  <span>Google Account Verified</span>
-                </div>
+                {user.name && (
+                  <div className="text-xs font-semibold text-white truncate">
+                    {user.name}
+                  </div>
+                )}
+                {user.email && (
+                  <div className="text-[11px] text-fg-3 truncate">
+                    {user.email}
+                  </div>
+                )}
               </div>
 
               <DropdownMenuItem asChild>
@@ -150,7 +152,7 @@ export function Topbar({
 
               <DropdownMenuItem asChild>
                 <Link href="/memory" className="flex items-center gap-2 cursor-pointer">
-                  <Sparkles className="size-3.5 text-fg-2" />
+                  <Database className="size-3.5 text-fg-2" />
                   <span>Walrus Memory Bank</span>
                 </Link>
               </DropdownMenuItem>
@@ -166,14 +168,6 @@ export function Topbar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <Link
-            href="/auth/signin"
-            className="glass-pill inline-flex h-9 sm:h-10 items-center gap-2 rounded-full px-3 sm:px-4 text-xs font-medium text-white hover:bg-white/[0.08] transition-colors shrink-0"
-          >
-            <LogIn className="size-3.5 text-electric shrink-0" />
-            <span>Sign In</span>
-          </Link>
         )}
       </div>
     </header>

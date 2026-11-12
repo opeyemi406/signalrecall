@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Clock, Bell, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Clock, Trash2, RefreshCw } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { CoinIcon } from "@/components/CoinIcon";
 import { Switch } from "@/components/ui/switch";
@@ -204,7 +204,6 @@ export default function AlertsPage() {
 
         {items.length === 0 ? (
           <div className="py-14 text-center text-xs text-fg-3 space-y-2">
-            <Bell className="size-6 text-fg-3 mx-auto" />
             <p className="text-white font-medium">No alerts created yet</p>
             <p className="text-fg-2 max-w-sm mx-auto">
               Set up price thresholds, breakouts, or volume alerts to receive immediate notifications.
