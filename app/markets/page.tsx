@@ -16,7 +16,7 @@ export default function MarketsPage() {
   const [onlyGainers, setOnlyGainers] = React.useState(false);
   const [selected, setSelected] = React.useState<CoinSymbol>("ETH");
   const [marketData, setMarketData] = React.useState<TatumMarketResponse>({
-    configured: false,
+    configured: true,
     provider: "tatum",
     assets: [],
   });
@@ -100,7 +100,7 @@ export default function MarketsPage() {
         </div>
       </div>
 
-      {!marketData.configured && (
+      {!loading && !marketData.configured && (
         <div className="rounded-2xl border border-[#F5A623]/30 bg-[#F5A623]/10 p-5 space-y-3">
           <div className="flex items-center gap-2.5 text-[#F5A623]">
             <KeyRound className="size-5" />
@@ -135,7 +135,9 @@ export default function MarketsPage() {
         {/* Asset Rows */}
         {filtered.length === 0 ? (
           <div className="py-12 text-center text-xs text-fg-3">
-            {marketData.configured
+            {loading
+              ? "Streaming live market rates..."
+              : marketData.configured
               ? "No assets matching search filter."
               : "Awaiting Tatum API configuration to stream market data."}
           </div>

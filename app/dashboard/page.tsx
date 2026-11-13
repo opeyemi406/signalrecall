@@ -12,7 +12,7 @@ import type { Signal } from "@/lib/types";
 
 export default function DashboardPage() {
   const [signals, setSignals] = React.useState<Signal[]>([]);
-  const [tatumConfigured, setTatumConfigured] = React.useState(false);
+  const [tatumConfigured, setTatumConfigured] = React.useState(true);
   const [suiCheckpoint, setSuiCheckpoint] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -22,7 +22,7 @@ export default function DashboardPage() {
         .then((res) => res.json())
         .then((data) => {
           setSignals(data.signals || []);
-          setTatumConfigured(Boolean(data.configured));
+          setTatumConfigured(data.configured !== false);
           setLoading(false);
         })
         .catch(() => setLoading(false));

@@ -10,7 +10,7 @@ import { LogoMark } from "@/components/Logo";
 export function AISummaryCard() {
   const [memoryCount, setMemoryCount] = React.useState<number>(0);
   const [signalCount, setSignalCount] = React.useState<number>(0);
-  const [tatumConfigured, setTatumConfigured] = React.useState<boolean>(false);
+  const [tatumConfigured, setTatumConfigured] = React.useState<boolean>(true);
 
   React.useEffect(() => {
     fetch("/api/walrus")
@@ -22,7 +22,7 @@ export function AISummaryCard() {
       .then((r) => r.json())
       .then((d) => {
         setSignalCount(d.count || 0);
-        setTatumConfigured(Boolean(d.configured));
+        setTatumConfigured(d.configured !== false);
       })
       .catch(() => {});
   }, []);

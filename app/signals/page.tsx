@@ -18,7 +18,7 @@ export default function SignalsPage() {
   const [selectedAsset, setSelectedAsset] = React.useState<CoinSymbol>("BTC");
   const [currentSpotPrice, setCurrentSpotPrice] = React.useState<number | null>(null);
   const [priceUnavailable, setPriceUnavailable] = React.useState<string | null>(null);
-  const [tatumConfigured, setTatumConfigured] = React.useState<boolean>(false);
+  const [tatumConfigured, setTatumConfigured] = React.useState<boolean>(true);
   const [targetPrice, setTargetPrice] = React.useState("");
   const [invalidationPrice, setInvalidationPrice] = React.useState("");
   const [rationale, setRationale] = React.useState("");
@@ -32,12 +32,14 @@ export default function SignalsPage() {
   const fetchSignalsAndMarket = React.useCallback(async () => {
     setLoading(true);
     try {
-      const sigRes = await fetch("/api/signals");
+      const [sigRes, priceRes] = await Promise.all([
+        fetch("/api/signals"),
+        fetch("/api/market/prices"),
+      ]);
       const sigData = await sigRes.json();
       setSignals(sigData.signals || []);
-      setTatumConfigured(Boolean(sigData.configured));
+      setTatumConfigured(sigData.configured !== false);
 
-      const priceRes = await fetch("/api/market/prices");
       const priceData = await priceRes.json();
       const btc = priceData.assets?.find((a: { symbol: string }) => a.symbol === selectedAsset);
       if (btc?.unavailableReason) {
@@ -46,19 +48,19 @@ export default function SignalsPage() {
       } else if (btc) {
         setPriceUnavailable(null);
         setCurrentSpotPrice(btc.price);
-        if (!targetPrice) {
-          setTargetPrice(String(side === "LONG" ? +(btc.price * 1.05).toFixed(2) : +(btc.price * 0.95).toFixed(2)));
-        }
-        if (!invalidationPrice) {
-          setInvalidationPrice(String(side === "LONG" ? +(btc.price * 0.97).toFixed(2) : +(btc.price * 1.03).toFixed(2)));
-        }
+        setTargetPrice((prev) =>
+          prev || String(side === "LONG" ? +(btc.price * 1.05).toFixed(2) : +(btc.price * 0.95).toFixed(2))
+        );
+        setInvalidationPrice((prev) =>
+          prev || String(side === "LONG" ? +(btc.price * 0.97).toFixed(2) : +(btc.price * 1.03).toFixed(2))
+        );
       }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, [selectedAsset, side, targetPrice, invalidationPrice]);
+  }, [selectedAsset, side]);
 
   // Reset price-derived fields when switching assets so stale levels are never submitted.
   React.useEffect(() => {
@@ -193,7 +195,7 @@ export default function SignalsPage() {
         </div>
       )}
 
-      {!tatumConfigured && (
+      {!loading && !tatumConfigured && (
         <div className="rounded-2xl border border-[#F5A623]/30 bg-[#F5A623]/10 p-4 space-y-2 text-xs">
           <div className="flex items-center gap-2 text-[#F5A623] font-semibold">
             <KeyRound className="size-4" />

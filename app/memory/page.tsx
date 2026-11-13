@@ -28,7 +28,7 @@ interface WalrusStatus {
 
 export default function MemoryBankPage() {
   const [memories, setMemories] = React.useState<Memory[]>([]);
-  const [status, setStatus] = React.useState<WalrusStatus>({ configured: false });
+  const [status, setStatus] = React.useState<WalrusStatus>({ configured: true });
   const [modalOpen, setModalOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
   const [body, setBody] = React.useState("");
@@ -228,7 +228,7 @@ export default function MemoryBankPage() {
         </div>
       </div>
 
-      {!status.configured && (
+      {!loading && !status.configured && (
         <div className="rounded-2xl border border-[#F5A623]/30 bg-[#F5A623]/10 p-5 space-y-3">
           <div className="flex items-center gap-2.5 text-[#F5A623]">
             <KeyRound className="size-5" />
@@ -258,7 +258,11 @@ export default function MemoryBankPage() {
           </span>
         </div>
 
-        {memories.length === 0 ? (
+        {loading && memories.length === 0 ? (
+          <div className="py-16 text-center text-xs text-fg-3">
+            Loading encrypted memories from Walrus...
+          </div>
+        ) : memories.length === 0 ? (
           <div className="py-16 text-center text-sm text-fg-3 space-y-2">
             <p className="text-white font-medium text-base">No memories stored yet</p>
             <p className="text-fg-2 max-w-md mx-auto leading-relaxed">

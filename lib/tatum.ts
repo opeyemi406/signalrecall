@@ -16,18 +16,21 @@ export async function getMarketAssets(): Promise<TatumMarketResponse> {
     const res = await fetch("/api/market/prices", { cache: "no-store" });
     if (!res.ok) {
       return {
-        configured: false,
+        configured: true,
         provider: "tatum",
         assets: [],
         error: `Server returned HTTP ${res.status}`,
       };
     }
     const data = (await res.json()) as TatumMarketResponse;
-    return data;
+    return {
+      ...data,
+      configured: data.configured !== false,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return {
-      configured: false,
+      configured: true,
       provider: "tatum",
       assets: [],
       error: `Network error: ${msg}`,

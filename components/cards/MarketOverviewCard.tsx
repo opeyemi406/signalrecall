@@ -12,7 +12,7 @@ import { ArrowUpRight, ArrowDownRight, KeyRound, RefreshCw } from "lucide-react"
 export function MarketOverviewCard() {
   const [selected, setSelected] = React.useState<CoinSymbol>("ETH");
   const [state, setState] = React.useState<TatumMarketResponse>({
-    configured: false,
+    configured: true,
     provider: "tatum",
     assets: [],
   });
@@ -61,7 +61,7 @@ export function MarketOverviewCard() {
         </div>
       </div>
 
-      {!state.configured ? (
+      {!loading && !state.configured ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center space-y-2.5">
           <KeyRound className="size-6 text-[#F5A623] mx-auto" />
           <div className="text-sm font-semibold text-white">Tatum API Key Required</div>
