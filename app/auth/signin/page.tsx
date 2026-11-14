@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 
 function SignInContent() {
   const searchParams = useSearchParams();
@@ -20,10 +21,8 @@ function SignInContent() {
     <div className="min-h-screen bg-[#05060D] text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-[380px] text-center space-y-6">
         <Link href="/" className="inline-flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#0d1124] border border-white/10 ring-conic flex items-center justify-center">
-            <span className="text-[12px] font-bold tracking-tight text-white">SR</span>
-          </div>
-          <span className="text-[16px] font-semibold tracking-tight text-white">
+          <LogoMark size={32} id="signinLogoMark" />
+          <span className="text-[17px] font-semibold tracking-tight text-white">
             SignalRecall
           </span>
         </Link>

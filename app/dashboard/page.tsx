@@ -112,7 +112,6 @@ export default function DashboardPage() {
         <StatCard
           label="Tracked Calls"
           value={signals.length}
-          displayText={signals.length > 0 ? undefined : `Tracking since ${startDateLabel}`}
           suffix=" Recorded"
           deltaLabel={tatumConfigured ? "Live Tatum Feed" : "Tatum Key Required"}
           deltaPositive={tatumConfigured}
@@ -121,9 +120,6 @@ export default function DashboardPage() {
         <StatCard
           label="Settled P&L"
           value={Math.abs(totalPnl)}
-          displayText={
-            resolvedSignals.length > 0 ? undefined : `Since ${startDateLabel}`
-          }
           prefix={totalPnl >= 0 ? "+" : "-"}
           suffix="%"
           decimals={2}
@@ -138,7 +134,6 @@ export default function DashboardPage() {
         <StatCard
           label="Active 24h Signals"
           value={activeSignals.length}
-          displayText={activeSignals.length > 0 ? undefined : "Ready to record"}
           suffix=" Active"
           deltaLabel={
             activeSignals.length > 0

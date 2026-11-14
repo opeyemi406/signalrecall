@@ -125,35 +125,90 @@ export async function fetchSuiNetworkTelemetry(): Promise<SuiNetworkTelemetry | 
 }
 
 /**
- * Single-symbol lookup that reports why a price is unavailable.
- * Never returns a fabricated value.
+ * Single-symbol lookup with live exchange fallback when Tatum returns 402 (plan limit exceeded) or network error.
+ * Uses cache: "no-store" so Next.js never serves stale cached prices from disk.
  */
 export async function fetchTatumRateResult(
   symbol: CoinSymbol
 ): Promise<{ ok: true; price: number; timestamp: number } | { ok: false; reason: string }> {
   const apiKey = process.env.TATUM_API_KEY?.trim();
-  if (!apiKey) return { ok: false, reason: "TATUM_API_KEY is not configured." };
-  try {
-    const res = await fetch(
-      `https://api.tatum.io/v4/data/rate/symbol?symbol=${encodeURIComponent(symbol)}&basePair=USD`,
-      { headers: { "x-api-key": apiKey, accept: "application/json" }, next: { revalidate: 10 } }
-    );
-    if (res.status === 402) {
-      return { ok: false, reason: `Tatum does not serve ${symbol} on the current plan (HTTP 402).` };
+
+  // 1. Primary: Tatum v4 Data API
+  if (apiKey) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4500);
+      const res = await fetch(
+        `https://api.tatum.io/v4/data/rate/symbol?symbol=${encodeURIComponent(symbol)}&basePair=USD`,
+        {
+          headers: { "x-api-key": apiKey, accept: "application/json" },
+          signal: controller.signal,
+          cache: "no-store",
+        }
+      );
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const data = (await res.json()) as TatumV4RateResponse;
+        const price = parseFloat(data.value);
+        if (!isNaN(price) && price > 0) {
+          return { ok: true, price, timestamp: data.timestamp || Date.now() };
+        }
+      }
+    } catch {
+      // Fall through to live exchange feeds
     }
-    if (!res.ok) return { ok: false, reason: `Tatum returned HTTP ${res.status} for ${symbol}.` };
-    const data = (await res.json()) as TatumV4RateResponse;
-    const price = parseFloat(data.value);
-    if (isNaN(price)) return { ok: false, reason: `Tatum returned no price for ${symbol}.` };
-    return { ok: true, price, timestamp: data.timestamp || Date.now() };
-  } catch {
-    return { ok: false, reason: `Network error reaching Tatum for ${symbol}.` };
   }
+
+  // 2. Live Binance Spot Ticker (real-time fallback when Tatum quota is exceeded)
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4500);
+    const headers: Record<string, string> = {};
+    if (process.env.BINANCE_API_KEY) {
+      headers["X-MBX-APIKEY"] = process.env.BINANCE_API_KEY;
+    }
+    const res = await fetch(
+      `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(symbol)}USDT`,
+      { headers, signal: controller.signal, cache: "no-store" }
+    );
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = (await res.json()) as { price?: string };
+      const price = parseFloat(data.price || "");
+      if (!isNaN(price) && price > 0) {
+        return { ok: true, price, timestamp: Date.now() };
+      }
+    }
+  } catch {
+    // Fall through to KuCoin
+  }
+
+  // 3. Live KuCoin Spot Orderbook Level 1
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4500);
+    const res = await fetch(
+      `https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${encodeURIComponent(symbol)}-USDT`,
+      { signal: controller.signal, cache: "no-store" }
+    );
+    clearTimeout(timeout);
+    if (res.ok) {
+      const json = (await res.json()) as { data?: { price?: string; time?: number } };
+      const price = parseFloat(json.data?.price || "");
+      if (!isNaN(price) && price > 0) {
+        return { ok: true, price, timestamp: json.data?.time || Date.now() };
+      }
+    }
+  } catch {
+    // Fall through
+  }
+
+  return { ok: false, reason: `Live price feed temporarily unavailable for ${symbol}.` };
 }
 
 /**
- * Fetch real-time exchange rate for a single symbol from Tatum Data API.
- * Uses official Tatum v4 endpoint with fallback to v3.
+ * Fetch real-time exchange rate for a single symbol.
  */
 export async function fetchTatumRate(symbol: CoinSymbol): Promise<{ price: number; timestamp: number } | null> {
   const res = await fetchTatumRateResult(symbol);
@@ -161,56 +216,103 @@ export async function fetchTatumRate(symbol: CoinSymbol): Promise<{ price: numbe
   return { price: res.price, timestamp: res.timestamp };
 }
 
-/**
- * Batch fetch exchange rates for all supported symbols from Tatum.
- * Uses official Tatum v4 batch endpoint: POST https://api.tatum.io/v4/data/rate/symbol/batch
- */
 interface AssetDelta {
+  price?: number;
   change24h: number;
   volume24h: number;
 }
 
 /**
- * Fetch live 24h price change percentage & volume from Binance / CoinMarketCap.
+ * Fetch live spot price, 24h price change percentage, and 24h volume from Binance / KuCoin / CoinMarketCap.
+ * Always uses cache: "no-store" so prices are never stale.
  */
 export async function fetch24hDeltas(): Promise<Record<string, AssetDelta>> {
   const deltas: Record<string, AssetDelta> = {};
 
-  // 1. Try Binance 24hr ticker (high-frequency, free/authenticated)
+  // 1. Try Binance 24hr ticker (high-frequency, live lastPrice + 24h change + volume)
   try {
-    const symbols = SUPPORTED_SYMBOLS.map((s) => `"${s}USDT"`).join(",");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const symbolsParam = encodeURIComponent(
+      JSON.stringify(SUPPORTED_SYMBOLS.map((s) => `${s}USDT`))
+    );
     const headers: Record<string, string> = {};
     if (process.env.BINANCE_API_KEY) {
       headers["X-MBX-APIKEY"] = process.env.BINANCE_API_KEY;
     }
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=[${symbols}]`, {
-      headers,
-      next: { revalidate: 30 },
-    });
+    const res = await fetch(
+      `https://api.binance.com/api/v3/ticker/24hr?symbols=${symbolsParam}`,
+      {
+        headers,
+        signal: controller.signal,
+        cache: "no-store",
+      }
+    );
+    clearTimeout(timeout);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
         for (const item of data) {
-          const sym = item.symbol.replace("USDT", "");
+          const sym = String(item.symbol || "").replace("USDT", "");
+          const lastPrice = parseFloat(item.lastPrice);
           const pct = parseFloat(item.priceChangePercent);
           const vol = parseFloat(item.quoteVolume);
           if (!isNaN(pct)) {
             deltas[sym] = {
+              price: !isNaN(lastPrice) && lastPrice > 0 ? lastPrice : undefined,
               change24h: parseFloat(pct.toFixed(2)),
               volume24h: isNaN(vol) ? 0 : Math.round(vol),
             };
           }
         }
-        return deltas;
+        if (Object.keys(deltas).length > 0) {
+          return deltas;
+        }
       }
     }
   } catch (err) {
     console.warn("[24h Delta] Binance ticker fetch failed:", err);
   }
 
-  // 2. Fallback to CoinMarketCap Pro API if configured
+  // 2. Fallback to KuCoin 24hr stats
+  try {
+    await Promise.all(
+      SUPPORTED_SYMBOLS.map(async (sym) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        const res = await fetch(
+          `https://api.kucoin.com/api/v1/market/stats?symbol=${sym}-USDT`,
+          { signal: controller.signal, cache: "no-store" }
+        );
+        clearTimeout(timeout);
+        if (res.ok) {
+          const json = await res.json();
+          const d = json?.data;
+          if (d) {
+            const lastPrice = parseFloat(d.last);
+            const changeRate = parseFloat(d.changeRate) * 100;
+            const volValue = parseFloat(d.volValue);
+            deltas[sym] = {
+              price: !isNaN(lastPrice) && lastPrice > 0 ? lastPrice : undefined,
+              change24h: isNaN(changeRate) ? 0 : parseFloat(changeRate.toFixed(2)),
+              volume24h: isNaN(volValue) ? 0 : Math.round(volValue),
+            };
+          }
+        }
+      })
+    );
+    if (Object.keys(deltas).length > 0) {
+      return deltas;
+    }
+  } catch (err) {
+    console.warn("[24h Delta] KuCoin stats fetch failed:", err);
+  }
+
+  // 3. Fallback to CoinMarketCap Pro API if configured
   if (process.env.CMC_PRO_API_KEY) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const symbols = SUPPORTED_SYMBOLS.join(",");
       const res = await fetch(
         `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbols}`,
@@ -218,18 +320,22 @@ export async function fetch24hDeltas(): Promise<Record<string, AssetDelta>> {
           headers: {
             "X-CMC_PRO_API_KEY": process.env.CMC_PRO_API_KEY,
           },
-          next: { revalidate: 60 },
+          signal: controller.signal,
+          cache: "no-store",
         }
       );
+      clearTimeout(timeout);
       if (res.ok) {
         const json = await res.json();
         const data = json?.data || {};
         for (const sym of SUPPORTED_SYMBOLS) {
           const quote = data[sym]?.quote?.USD;
           if (quote) {
+            const price = parseFloat(quote.price);
             const pct = parseFloat(quote.percent_change_24h);
             const vol = parseFloat(quote.volume_24h);
             deltas[sym] = {
+              price: !isNaN(price) && price > 0 ? price : undefined,
               change24h: isNaN(pct) ? 0 : parseFloat(pct.toFixed(2)),
               volume24h: isNaN(vol) ? 0 : Math.round(vol),
             };
@@ -250,85 +356,108 @@ export async function fetchAllTatumRates(): Promise<{
   assets: Asset[];
   error?: string;
 }> {
-  if (!isTatumConfigured()) {
-    return {
-      configured: false,
-      assets: [],
-      error: "TATUM_API_KEY is not configured. Set TATUM_API_KEY in .env to stream live market prices.",
-    };
-  }
-
-  const apiKey = process.env.TATUM_API_KEY!.trim();
+  const apiKey = process.env.TATUM_API_KEY?.trim();
   const deltas = await fetch24hDeltas();
 
-  // 1. Attempt official v4 batch rate request
-  try {
-    const batchPayload = SUPPORTED_SYMBOLS.map((sym) => ({
-      batchId: sym,
-      symbol: sym,
-      basePair: "USD",
-    }));
+  // 1. Attempt official Tatum v4 batch rate request (cache: "no-store" so stale prices are never served)
+  if (apiKey) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4500);
+      const batchPayload = SUPPORTED_SYMBOLS.map((sym) => ({
+        batchId: sym,
+        symbol: sym,
+        basePair: "USD",
+      }));
 
-    const batchRes = await fetch("https://api.tatum.io/v4/data/rate/symbol/batch", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "content-type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify(batchPayload),
-      next: { revalidate: 10 },
-    });
+      const batchRes = await fetch("https://api.tatum.io/v4/data/rate/symbol/batch", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify(batchPayload),
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      clearTimeout(timeout);
 
-    if (batchRes.ok) {
-      const data = (await batchRes.json()) as TatumV4RateResponse[];
-      if (Array.isArray(data) && data.length > 0) {
-        const assets: Asset[] = [];
-        for (const item of data) {
-          const sym = (item.batchId || item.symbol) as CoinSymbol;
-          const price = parseFloat(item.value);
-          if (sym && !isNaN(price)) {
-            const d = deltas[sym];
-            assets.push({
-              symbol: sym,
-              name: ASSET_NAMES[sym] || sym,
-              price,
-              change24h: d ? d.change24h : 0,
-              volume24h: d ? d.volume24h : 0,
-              sparkline: [price],
-              source: "live",
-            });
-          }
-        }
-
-        if (assets.length > 0) {
-          for (const sym of SUPPORTED_SYMBOLS) {
-            if (!assets.some((x) => x.symbol === sym)) {
+      if (batchRes.ok) {
+        const data = (await batchRes.json()) as TatumV4RateResponse[];
+        if (Array.isArray(data) && data.length > 0) {
+          const assets: Asset[] = [];
+          for (const item of data) {
+            const sym = (item.batchId || item.symbol) as CoinSymbol;
+            const price = parseFloat(item.value);
+            if (sym && !isNaN(price) && price > 0) {
+              const d = deltas[sym];
               assets.push({
                 symbol: sym,
-                name: ASSET_NAMES[sym],
-                price: 0,
-                change24h: 0,
-                volume24h: 0,
-                sparkline: [],
+                name: ASSET_NAMES[sym] || sym,
+                price,
+                change24h: d ? d.change24h : 0,
+                volume24h: d ? d.volume24h : 0,
+                sparkline: [price],
                 source: "live",
-                unavailableReason: `Tatum returned no rate for ${sym}.`,
               });
             }
           }
-          return { configured: true, assets };
+
+          if (assets.length > 0) {
+            for (const sym of SUPPORTED_SYMBOLS) {
+              if (!assets.some((x) => x.symbol === sym)) {
+                const d = deltas[sym];
+                if (d?.price && d.price > 0) {
+                  assets.push({
+                    symbol: sym,
+                    name: ASSET_NAMES[sym],
+                    price: d.price,
+                    change24h: d.change24h,
+                    volume24h: d.volume24h,
+                    sparkline: [d.price],
+                    source: "live",
+                  });
+                } else {
+                  assets.push({
+                    symbol: sym,
+                    name: ASSET_NAMES[sym],
+                    price: 0,
+                    change24h: 0,
+                    volume24h: 0,
+                    sparkline: [],
+                    source: "live",
+                    unavailableReason: `No live rate returned for ${sym}.`,
+                  });
+                }
+              }
+            }
+            return { configured: true, assets };
+          }
         }
       }
+    } catch {
+      // Fall through to live exchange ticker rates
     }
-  } catch (err) {
-    console.warn("[Tatum v4 batch] Batch rate request failed, falling back to concurrent queries:", err);
   }
 
-  // 2. Fallback to concurrent single-symbol requests
+  // 2. If Tatum returned 402 (plan limit exceeded) or timed out, use live exchange prices from deltas / single-symbol lookups
   const results = await Promise.all(
-    SUPPORTED_SYMBOLS.map(async (sym): Promise<Asset | null> => {
-      const rate = await fetchTatumRateResult(sym);
+    SUPPORTED_SYMBOLS.map(async (sym): Promise<Asset> => {
       const d = deltas[sym];
+      if (d?.price && d.price > 0) {
+        return {
+          symbol: sym,
+          name: ASSET_NAMES[sym],
+          price: d.price,
+          change24h: d.change24h,
+          volume24h: d.volume24h,
+          sparkline: [d.price],
+          source: "live",
+        };
+      }
+
+      const rate = await fetchTatumRateResult(sym);
       if (!rate.ok) {
         return {
           symbol: sym,
@@ -353,20 +482,18 @@ export async function fetchAllTatumRates(): Promise<{
     })
   );
 
-  const validAssets: Asset[] = results.filter((a): a is Asset => a !== null);
-  const anyLive = validAssets.some((a) => !a.unavailableReason);
-
+  const anyLive = results.some((a) => !a.unavailableReason && a.price > 0);
   if (!anyLive) {
     return {
-      configured: true,
+      configured: Boolean(apiKey),
       assets: [],
-      error: "Tatum API returned no valid rates for configured symbols. Check API key permissions and network.",
+      error: "Live market feeds temporarily unavailable.",
     };
   }
 
   return {
     configured: true,
-    assets: validAssets,
+    assets: results,
   };
 }
 

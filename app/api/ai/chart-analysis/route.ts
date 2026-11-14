@@ -19,7 +19,7 @@ async function fetchCandlesForAnalysis(symbol: CoinSymbol, tf: string): Promise<
       `https://api.kucoin.com/api/v1/market/candles?symbol=${symbol}-USDT&type=${type}`,
       {
         headers: { "User-Agent": "SignalRecall/2.0" },
-        next: { revalidate: 15 },
+        cache: "no-store",
       }
     );
     if (!res.ok) return [];
@@ -108,10 +108,14 @@ export async function POST(req: Request) {
     const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
     const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash";
 
-    let aiResult: Partial<ChartAnalysisResult> = {};
+    if (!openrouterKey) {
+      return NextResponse.json(
+        { error: "OPENROUTER_API_KEY is not configured in .env." },
+        { status: 400 }
+      );
+    }
 
-    if (openrouterKey) {
-      const systemPrompt = `You are SignalRecall's Lead AI Technical Quantitative Analyst.
+    const systemPrompt = `You are SignalRecall's Lead AI Technical Quantitative Analyst.
 You analyze financial candlestick series using standard technical indicators (RSI, Moving Averages, MACD, Bollinger Bands, and ATR).
 Your job is to provide objective, data-grounded 24-hour trade setups strictly grounded in mathematical calculations.
 
@@ -130,7 +134,7 @@ You MUST reply with a VALID JSON object (no markdown code blocks, no backticks, 
   ]
 }`;
 
-      const userPrompt = `Asset: ${symbol} (${timeframe} Timeframe)
+    const userPrompt = `Asset: ${symbol} (${timeframe} Timeframe)
 Current Live Spot Price (Tatum): $${spotPrice}
 Calculated Technical Indicators:
 - RSI (14): ${technicals.rsi.value} (${technicals.rsi.interpretation})
@@ -143,83 +147,71 @@ Calculated Technical Indicators:
 
 Produce the structured 24h technical analysis JSON now.`;
 
-      try {
-        const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openrouterKey}`,
-            "HTTP-Referer": process.env.AUTH_URL || "https://signal-recall.up.railway.app",
-            "X-Title": "SignalRecall",
-          },
-          body: JSON.stringify({
-            model: openrouterModel,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.2,
-            max_tokens: 800,
-          }),
-        });
+    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+        "HTTP-Referer": process.env.AUTH_URL || "https://signal-recall.up.railway.app",
+        "X-Title": "SignalRecall",
+      },
+      body: JSON.stringify({
+        model: openrouterModel,
+        reasoning: { effort: "low" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+      }),
+    });
 
-        if (orRes.ok) {
-          const orJson = await orRes.json();
-          const rawText = orJson?.choices?.[0]?.message?.content || "";
-          // Clean json
-          const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-          const parsed = JSON.parse(cleaned);
-          aiResult = parsed;
-        }
-      } catch (e) {
-        console.warn("[Chart Analysis] DeepSeek call error:", e);
-      }
+    if (!orRes.ok) {
+      const errText = await orRes.text();
+      return NextResponse.json(
+        { error: `AI model error (${orRes.status}): ${errText}` },
+        { status: 502 }
+      );
     }
 
-    // Fallback if AI inference fails or offline
-    const isBullish = technicals.ema.alignment === "BULLISH" || technicals.rsi.value >= 50;
-    const direction = aiResult.direction || (isBullish ? "LONG" : "SHORT");
-    const targetPrice =
-      aiResult.targetPrice ||
-      (direction === "LONG"
-        ? +(spotPrice + technicals.atr * 1.5).toFixed(2)
-        : +(spotPrice - technicals.atr * 1.5).toFixed(2));
-    const invalidationPrice =
-      aiResult.invalidationPrice ||
-      (direction === "LONG"
-        ? +(spotPrice - technicals.atr * 0.8).toFixed(2)
-        : +(spotPrice + technicals.atr * 0.8).toFixed(2));
+    const orJson = await orRes.json();
+    const rawText = orJson?.choices?.[0]?.message?.content || "";
+    const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json(
+        { error: "AI model did not return valid analysis JSON. Please retry." },
+        { status: 502 }
+      );
+    }
 
-    const marketBias =
-      aiResult.marketBias ||
-      (isBullish
-        ? technicals.rsi.value > 60
-          ? "BULLISH MOMENTUM"
-          : "RANGE CONSOLIDATION"
-        : technicals.rsi.value < 35
-        ? "OVERSOLD BOUNCE"
-        : "BEARISH BREAKDOWN");
-
-    const insights = aiResult.insights && aiResult.insights.length > 0
-      ? aiResult.insights
-      : [
-          `RSI at ${technicals.rsi.value} indicates ${technicals.rsi.interpretation.toLowerCase()}.`,
-          `Price trading relative to 20 EMA ($${technicals.ema.ema20.toLocaleString()}) with ${technicals.macd.signalCross.replace("_", " ").toLowerCase()}.`,
-          `Immediate structural support sits at $${technicals.levels.majorSupport.toLocaleString()} with resistance at $${technicals.levels.majorResistance.toLocaleString()}.`,
-        ];
+    const aiResult = JSON.parse(jsonMatch[0]) as Partial<ChartAnalysisResult>;
+    if (
+      !aiResult.direction ||
+      !aiResult.marketBias ||
+      !aiResult.targetPrice ||
+      !aiResult.invalidationPrice ||
+      !Array.isArray(aiResult.insights)
+    ) {
+      return NextResponse.json(
+        { error: "Incomplete AI technical analysis response. Please retry." },
+        { status: 502 }
+      );
+    }
 
     const result: ChartAnalysisResult = {
       symbol,
       timeframe,
-      marketBias,
-      direction,
-      confidence: aiResult.confidence || (isBullish ? 76 : 72),
+      marketBias: aiResult.marketBias,
+      direction: aiResult.direction,
+      confidence: aiResult.confidence ?? 75,
       entryPrice: spotPrice,
-      targetPrice,
-      invalidationPrice,
+      targetPrice: Number(aiResult.targetPrice),
+      invalidationPrice: Number(aiResult.invalidationPrice),
       riskRewardRatio: aiResult.riskRewardRatio || "1:2.0",
       technicalSummary: technicals,
-      insights,
+      insights: aiResult.insights,
       walrusMemoryCitation: walrusSnippet,
     };
 

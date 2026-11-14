@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   title: "SignalRecall — AI Trading Intelligence with Permanent Walrus Memory",
   description:
     "AI trading intelligence platform combining live Tatum market data with permanent Walrus Memory and objective 24h signal verification.",
+  icons: {
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
+  },
 };
 
 export default function RootLayout({

@@ -1,9 +1,43 @@
 import { NextResponse } from "next/server";
-import { getStoredMemories } from "@/lib/server/storage";
-import { fetchAllTatumRates, fetchTatumRate, isTatumConfigured } from "@/lib/server/tatum";
+import { getStoredMemories, getStoredSignals } from "@/lib/server/storage";
+import { fetchAllTatumRates, isTatumConfigured } from "@/lib/server/tatum";
+import { analyzeCandleSeries } from "@/lib/server/technical";
 import { recallSignalMemories } from "@/lib/server/walrus";
 import { auth } from "@/lib/auth";
-import { SUPPORTED_COINS, type ChatMessage, type CoinSymbol } from "@/lib/types";
+import { SUPPORTED_COINS, type Candle, type ChatMessage, type CoinSymbol } from "@/lib/types";
+
+async function fetchLiveCandles(symbol: CoinSymbol): Promise<Candle[]> {
+  try {
+    const res = await fetch(
+      `https://api.kucoin.com/api/v1/market/candles?symbol=${symbol}-USDT&type=4hour`,
+      {
+        headers: { "User-Agent": "SignalRecall/2.0" },
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) return [];
+    const json = (await res.json()) as {
+      code: string;
+      data?: Array<[string, string, string, string, string, string, string]>;
+    };
+    if (json.code !== "200000" || !Array.isArray(json.data) || json.data.length === 0) {
+      return [];
+    }
+
+    const candles: Candle[] = json.data.slice(0, 50).map((k) => ({
+      time: parseInt(k[0], 10),
+      open: parseFloat(k[1]),
+      close: parseFloat(k[2]),
+      high: parseFloat(k[3]),
+      low: parseFloat(k[4]),
+    }));
+
+    candles.sort((a, b) => Number(a.time) - Number(b.time));
+    return candles;
+  } catch {
+    return [];
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -14,119 +48,172 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
     }
 
-    const memories = await getStoredMemories(userId);
-    const walrusRecall = await recallSignalMemories(prompt, 3, 0.8, userId);
+    const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
+    if (!openrouterKey) {
+      return NextResponse.json(
+        { error: "OPENROUTER_API_KEY is not configured in .env." },
+        { status: 400 }
+      );
+    }
+
+    const [memories, signals, walrusRecall, market] = await Promise.all([
+      getStoredMemories(userId),
+      getStoredSignals(userId),
+      recallSignalMemories(prompt, 5, 0.8, userId),
+      isTatumConfigured()
+        ? fetchAllTatumRates()
+        : Promise.resolve({ configured: false, assets: [] }),
+    ]);
+
     const p = prompt.toLowerCase();
 
-    // Find any relevant memories from storage + Walrus Memory
+    // Find relevant user memories from local ledger + Walrus Memory
     const relevant = memories.filter((m) => {
       const hay = `${m.title} ${m.body} ${m.asset || ""} ${m.outcome || ""}`.toLowerCase();
       return p.split(/\W+/).some((w) => w.length > 2 && hay.includes(w));
     });
 
-    // Check if user is asking about an asset
+    // Identify mentioned asset (if any) to compute live 4H technical indicators
     let assetMentioned: CoinSymbol | null = null;
-    const symbols: readonly CoinSymbol[] = SUPPORTED_COINS;
-    for (const s of symbols) {
-      if (p.includes(s.toLowerCase()) || (s === "BTC" && p.includes("bitcoin")) || (s === "ETH" && p.includes("ethereum"))) {
+    for (const s of SUPPORTED_COINS) {
+      if (
+        p.includes(s.toLowerCase()) ||
+        (s === "BTC" && p.includes("bitcoin")) ||
+        (s === "ETH" && p.includes("ethereum")) ||
+        (s === "SOL" && p.includes("solana"))
+      ) {
         assetMentioned = s;
         break;
       }
     }
 
-    let rateInfo = "";
-    if (assetMentioned && isTatumConfigured()) {
-      const rate = await fetchTatumRate(assetMentioned);
-      if (rate) {
-        rateInfo = `Live ${assetMentioned} spot price via Tatum Data API is $${rate.price.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}.`;
-      }
-    } else if (!assetMentioned && isTatumConfigured()) {
-      // General market or multi-asset query: inject full live Tatum market feed
-      const market = await fetchAllTatumRates();
-      if (market.assets && market.assets.length > 0) {
-        const lines = market.assets.map(
-          (a) => `• ${a.symbol} (${a.name}): $${a.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${a.change24h >= 0 ? "+" : ""}${a.change24h.toFixed(2)}% 24h, 24h Vol: $${(a.volume24h / 1e6).toFixed(1)}M)`
+    // Build full live market snapshot from Tatum + Binance 24h deltas
+    let rateInfo = "Live market feed unavailable (TATUM_API_KEY not configured).";
+    if (market.assets && market.assets.length > 0) {
+      const lines = market.assets
+        .filter((a) => !a.unavailableReason && a.price > 0)
+        .map(
+          (a) =>
+            `• ${a.symbol} (${a.name}): $${a.price.toLocaleString(undefined, {
+              minimumFractionDigits: a.price < 10 ? 4 : 2,
+              maximumFractionDigits: a.price < 10 ? 4 : 2,
+            })} | 24h Change: ${a.change24h >= 0 ? "+" : ""}${a.change24h.toFixed(
+              2
+            )}% | 24h Volume: $${(a.volume24h / 1e6).toFixed(1)}M`
         );
-        rateInfo = `Live spot feeds via Tatum Data API:\n${lines.join("\n")}`;
+      if (lines.length > 0) {
+        rateInfo = lines.join("\n");
       }
-    } else if (!isTatumConfigured()) {
-      rateInfo = "Note: TATUM_API_KEY is not configured, so real-time onchain prices are currently unavailable.";
     }
 
-    let content = "";
-    const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
-    const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash";
-    const appUrl = process.env.AUTH_URL || "https://signal-recall.up.railway.app";
+    // Fetch live 4H candlesticks and compute real technical indicators for mentioned asset (or BTC)
+    const targetAssetForTech: CoinSymbol = assetMentioned || "BTC";
+    let technicalContext = "";
+    const candles = await fetchLiveCandles(targetAssetForTech);
+    if (candles.length >= 15) {
+      const tech = analyzeCandleSeries(candles);
+      technicalContext = `Live 4H Technical Indicators for ${targetAssetForTech} (computed from real OHLCV candles):
+• RSI (14): ${tech.rsi.value} (${tech.rsi.interpretation})
+• EMA Alignment: ${tech.ema.trend} (EMA 9: $${tech.ema.ema9}, EMA 20: $${tech.ema.ema20}, EMA 50: $${tech.ema.ema50})
+• MACD: ${tech.macd.macd} | Signal: ${tech.macd.signal} | Histogram: ${tech.macd.histogram} (${tech.macd.signalCross})
+• Bollinger Bands: Upper $${tech.bollingerBands.upper}, Middle $${tech.bollingerBands.middle}, Lower $${tech.bollingerBands.lower} (${tech.bollingerBands.status})
+• Structure Levels: Support $${tech.levels.majorSupport}, Resistance $${tech.levels.majorResistance}, Swing Low $${tech.levels.swingLow}, Swing High $${tech.levels.swingHigh}
+• ATR (14): $${tech.atr}`;
+    }
 
-    if (openrouterKey) {
-      // Call OpenRouter with DeepSeek
-      try {
-        const semanticContext = walrusRecall.results.length > 0
-          ? walrusRecall.results.map((r) => `[Walrus Memory Semantic Search] ${r.text}`).join("\n")
-          : "";
-        const memContext = [
-          ...relevant.map((m) => `[Walrus Memory Blob ${m.blobId}] ${m.title}: ${m.body} (Outcome: ${m.outcome || "N/A"})`),
-          semanticContext,
-        ].filter(Boolean).join("\n") || "No user-recorded signal memories for this query.";
+    // Build real Walrus Memory & Signal Ledger context
+    const semanticContext =
+      walrusRecall.results.length > 0
+        ? walrusRecall.results
+            .map((r) => `[Walrus Memory Recall] ${r.text}`)
+            .join("\n")
+        : "";
 
-        const systemPrompt = `You are SignalRecall's AI Trading Intelligence Assistant.
-You specialize in technical price action, liquidity, and objective 24-hour verification.
-You are strictly grounded in:
-1. Live Market Data via Tatum Data API:
-${rateInfo || "Prices streaming live."}
+    const memContext =
+      [
+        ...relevant.map(
+          (m) =>
+            `[Walrus Memory ${m.blobId}] ${m.title}: ${m.body} (Outcome: ${
+              m.outcome || "N/A"
+            })`
+        ),
+        semanticContext,
+      ]
+        .filter(Boolean)
+        .join("\n") || "0 matching memories stored in Walrus Memory Vault.";
 
-2. Historical observations recalled from decentralized Walrus Memory:
+    const signalContext =
+      signals.length > 0
+        ? signals
+            .slice(0, 5)
+            .map(
+              (s) =>
+                `• ${s.pair} ${s.direction} | Entry: $${s.entry} | Target: $${s.target} | Stop: $${s.invalidation} | Status: ${s.status} | Created: ${s.createdAt}`
+            )
+            .join("\n")
+        : "0 signals recorded in user ledger.";
+
+    const openrouterModel =
+      process.env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash";
+    const appUrl =
+      process.env.AUTH_URL || "https://signal-recall.up.railway.app";
+
+    const systemPrompt = `You are SignalRecall's AI Trading Intelligence Assistant.
+You must answer strictly using the real live data provided below. NEVER invent, guess, or mock any prices, indicators, memories, or signals.
+
+1. LIVE MARKET DATA (Tatum Data API + 24h Exchange Telemetry):
+${rateInfo}
+
+2. LIVE TECHNICAL INDICATORS:
+${technicalContext || "No candlestick series available."}
+
+3. WALRUS DECENTRALIZED MEMORY VAULT (${memories.length} total stored in user vault):
 ${memContext}
 
+4. USER SIGNAL LEDGER (${signals.length} total recorded signals):
+${signalContext}
+
 Guidelines:
-- Provide actionable, factual insights using the live Tatum prices and 24h changes provided above.
-- Reference specific memories or patterns when relevant.
-- Be precise, direct, and concise.
-- Never guarantee profits or make wild claims; emphasize 24-hour verification accountability.`;
+- Use the exact live prices, 24h percentage changes, 24h volumes, and 4H technical indicators (RSI, EMA 9/20/50, MACD, Bollinger Bands, Support/Resistance, ATR) provided above.
+- If the Walrus Memory Vault or Signal Ledger has 0 entries for the query, state clearly that 0 memories/signals are stored yet and base your analysis strictly on the live market and technical data above.
+- Be concise, well-structured, and direct.`;
 
-        const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openrouterKey}`,
-            "HTTP-Referer": appUrl,
-            "X-Title": "SignalRecall",
-          },
-          body: JSON.stringify({
-            model: openrouterModel,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: prompt },
-            ],
-            temperature: 0.3,
-            max_tokens: 1200,
-          }),
-        });
+    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openrouterKey}`,
+        "HTTP-Referer": appUrl,
+        "X-Title": "SignalRecall",
+      },
+      body: JSON.stringify({
+        model: openrouterModel,
+        reasoning: { effort: "low" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 4096,
+      }),
+    });
 
-        if (orRes.ok) {
-          const orJson = await orRes.json();
-          content = orJson?.choices?.[0]?.message?.content || "";
-        } else {
-          const errText = await orRes.text();
-          console.warn("[OpenRouter] Error response:", errText);
-        }
-      } catch (err) {
-        console.warn("[OpenRouter] Request failed:", err);
-      }
+    if (!orRes.ok) {
+      const errText = await orRes.text();
+      return NextResponse.json(
+        { error: `AI model error (${orRes.status}): ${errText}` },
+        { status: 502 }
+      );
     }
 
+    const orJson = await orRes.json();
+    const content = orJson?.choices?.[0]?.message?.content?.trim();
+
     if (!content) {
-      if (relevant.length > 0) {
-        const memList = relevant.slice(0, 3).map((m) => `• "${m.title}": ${m.body}`).join("\n");
-        content = `Recalled from Walrus Memory:\n${memList}\n\n${rateInfo}\n\nBased on these historical occurrences, monitor 24h follow-through. All calls must be verified through the Tatum 24h verification ledger.`;
-      } else if (assetMentioned) {
-        content = `${rateInfo}\n\nNo stored historical memories for ${assetMentioned} found in your decentralized Walrus vault yet. Storing observations in the Memory Bank will help ground future analysis.`;
-      } else {
-        content = `I am SignalRecall's AI analyst. I ground signals and alerts directly against decentralized Walrus memory blobs and Tatum's 24h objective verification engine.\n\n${rateInfo}\n\nCurrently indexing ${memories.length} decentralized memories. Ask about BTC, ETH, SOL, SUI, or query your track record.`;
-      }
+      return NextResponse.json(
+        { error: "AI model returned an empty response. Please try again." },
+        { status: 502 }
+      );
     }
 
     const reply: ChatMessage = {

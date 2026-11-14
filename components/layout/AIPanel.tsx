@@ -5,6 +5,7 @@ import { RotateCcw, X, Send } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { askAssistant } from "@/lib/ai";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/Logo";
 
 export interface AIPanelProps {
   onClose?: () => void;
@@ -164,27 +165,8 @@ export function AIPanel({ onClose, className }: AIPanelProps) {
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* SignalRecall logomark in a dark circle with a thin conic ring */}
-          <div className="ring-conic relative flex size-9 items-center justify-center rounded-full p-[1.5px]">
-            <div className="flex size-full items-center justify-center rounded-full bg-[#070814]">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 28 28"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z"
-                  fill="#2F6BFF"
-                />
-                <path
-                  d="M14 15.5L17.6 22H10.4L14 15.5Z"
-                  fill="#6D5EF5"
-                />
-              </svg>
-            </div>
-          </div>
+          {/* SignalRecall squircle logomark */}
+          <LogoMark size={32} id="aiPanelLogoMark" />
           <div>
             <div className="text-sm font-semibold text-white leading-tight">
               SignalRecall AI

@@ -85,13 +85,6 @@ export default function TrackRecordPage() {
         <StatCard
           label="Win Rate"
           value={winRate}
-          displayText={
-            hasTenSettled
-              ? undefined
-              : resolved.length > 0
-              ? `${resolved.length} settled since ${startDateLabel}`
-              : `Tracking since ${startDateLabel}`
-          }
           suffix="%"
           decimals={1}
           deltaLabel={
@@ -105,9 +98,6 @@ export default function TrackRecordPage() {
         <StatCard
           label="Total P&L"
           value={Math.abs(totalPnl)}
-          displayText={
-            resolved.length > 0 ? undefined : `Since ${startDateLabel}`
-          }
           prefix={totalPnl >= 0 ? "+" : "-"}
           suffix="%"
           decimals={2}
@@ -122,12 +112,8 @@ export default function TrackRecordPage() {
         <StatCard
           label="Recorded Ledger"
           value={signals.length}
-          displayText={
-            signals.length > 0
-              ? `${signals.length} recorded`
-              : `Started ${startDateLabel}`
-          }
-          deltaLabel={`Since ${startDateLabel}`}
+          suffix=" Calls"
+          deltaLabel="Tatum 24h Settlement"
           deltaPositive={true}
         />
       </div>

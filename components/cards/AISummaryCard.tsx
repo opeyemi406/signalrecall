@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/Logo";
 
 export function AISummaryCard() {
   const [memoryCount, setMemoryCount] = React.useState<number>(0);
@@ -32,26 +33,7 @@ export function AISummaryCard() {
         {/* Top Row: Title + Updated Pill */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="ring-conic flex size-7 items-center justify-center rounded-full p-[1.5px]">
-              <div className="size-full rounded-full bg-[#081029] flex items-center justify-center">
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 28 28"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z"
-                    fill="#2F6BFF"
-                  />
-                  <path
-                    d="M14 15.5L17.6 22H10.4L14 15.5Z"
-                    fill="#6D5EF5"
-                  />
-                </svg>
-              </div>
-            </div>
+            <LogoMark size={24} id="aiSummaryLogoMark" />
             <h3 className="text-[16px] font-medium text-white">AI Market Intelligence</h3>
           </div>
 

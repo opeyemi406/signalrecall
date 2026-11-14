@@ -1,5 +1,5 @@
-/** Where a piece of data came from. Rendered as a badge so mock values are never mistaken for live ones. */
-export type DataSource = "live" | "memory" | "model" | "demo";
+/** Where a piece of data came from. */
+export type DataSource = "live" | "memory" | "model";
 
 export const SUPPORTED_COINS = ["BTC", "ETH", "SOL", "SUI", "BNB", "XRP"] as const;
 export type CoinSymbol = (typeof SUPPORTED_COINS)[number];

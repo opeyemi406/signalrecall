@@ -15,11 +15,60 @@ import {
   X,
 } from "lucide-react";
 import { CoinIcon } from "@/components/CoinIcon";
+import { LogoMark } from "@/components/Logo";
 import { CandlestickChart } from "@/components/cards/CandlestickChart";
-import { getHomepageSignalData } from "@/lib/examples";
 import { countdownTo, shortDate } from "@/lib/time";
-import type { Asset, CoinSymbol, Memory, Signal } from "@/lib/types";
+import type { Asset, CoinSymbol, Memory, ResolvedSignal, Signal } from "@/lib/types";
 import { formatPct, formatUsd } from "@/lib/utils";
+
+interface EnrichedSignal extends Signal {
+  settledPrice: number | null;
+  pnlPct: number | null;
+}
+
+function enrichSignal(sig: Signal): EnrichedSignal {
+  const isSettled = sig.status === "TARGET_REACHED" || sig.status === "INVALIDATED";
+  const settledPrice =
+    sig.status === "TARGET_REACHED"
+      ? sig.target
+      : sig.status === "INVALIDATED"
+      ? sig.invalidation
+      : null;
+
+  let pnlPct: number | null = null;
+  if (isSettled && settledPrice !== null && sig.entry > 0) {
+    pnlPct =
+      sig.direction === "LONG"
+        ? ((settledPrice - sig.entry) / sig.entry) * 100
+        : ((sig.entry - settledPrice) / sig.entry) * 100;
+  }
+
+  return {
+    ...sig,
+    settledPrice,
+    pnlPct,
+  };
+}
+
+function toResolvedSignal(sig: Signal): ResolvedSignal {
+  const mapped = enrichSignal(sig);
+  return {
+    id: sig.id,
+    userId: sig.userId,
+    asset: sig.asset,
+    pair: sig.pair,
+    direction: sig.direction,
+    entry: sig.entry,
+    target: sig.target,
+    settledPrice: mapped.settledPrice,
+    status: sig.status,
+    createdAt: sig.createdAt,
+    verifiedAt:
+      sig.status === "TARGET_REACHED" || sig.status === "INVALIDATED" ? sig.verifyAt : null,
+    pnlPct: mapped.pnlPct,
+    blobId: sig.memoryAudit?.memoryIds?.[0] || "",
+  };
+}
 
 export default function HomePage() {
   const { status: authStatus } = useSession();
@@ -95,15 +144,42 @@ export default function HomePage() {
   }, [loadLiveTelemetry]);
 
   const {
-    heroSignal,
-    walkthroughSignal,
+    latestSignal,
     trackRecordSignals,
     realSignalCount,
     realSettledCount,
     realWinRate,
-    showingExamplesInTrackRecord,
     ledgerStartDate,
-  } = React.useMemo(() => getHomepageSignalData(signals), [signals]);
+  } = React.useMemo(() => {
+    const realCount = signals.length;
+    const settledReal = signals.filter(
+      (s) => s.status === "TARGET_REACHED" || s.status === "INVALIDATED"
+    );
+    const settledCount = settledReal.length;
+
+    let winRate: number | null = null;
+    if (settledCount >= 10) {
+      const wins = settledReal.filter((s) => s.status === "TARGET_REACHED").length;
+      winRate = Math.round((wins / settledCount) * 100);
+    }
+
+    const earliestIso =
+      realCount > 0 ? signals[realCount - 1].createdAt : new Date().toISOString();
+    const startDate = new Date(earliestIso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return {
+      latestSignal: realCount > 0 ? enrichSignal(signals[0]) : null,
+      trackRecordSignals: signals.slice(0, 6).map(toResolvedSignal),
+      realSignalCount: realCount,
+      realSettledCount: settledCount,
+      realWinRate: winRate,
+      ledgerStartDate: startDate,
+    };
+  }, [signals]);
 
   const sectionMotionProps = prefersReducedMotion
     ? {}
@@ -122,17 +198,7 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#05060D]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 28 28"
-              fill="none"
-              className="shrink-0"
-              aria-hidden="true"
-            >
-              <path d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z" fill="#2F6BFF" />
-              <path d="M14 15.5L17.6 22H10.4L14 15.5Z" fill="#6D5EF5" />
-            </svg>
+            <LogoMark size={28} id="headerLogoMark" />
             <span className="text-[17px] font-semibold tracking-tight text-white">
               SignalRecall
             </span>
@@ -341,46 +407,44 @@ export default function HomePage() {
                     <CandlestickChart
                       symbol={selectedCoin}
                       entryPrice={
-                        !heroSignal.isExample && heroSignal.asset === selectedCoin
-                          ? heroSignal.entry
+                        latestSignal && latestSignal.asset === selectedCoin
+                          ? latestSignal.entry
                           : 0
                       }
                     />
                   </div>
 
-                  {/* Most Recent Signal Card (Real or Marked Fallback Example) */}
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <CoinIcon symbol={heroSignal.asset} size={22} />
-                        <span className="text-[15px] font-medium text-white">
-                          {heroSignal.pair} · {heroSignal.direction}
-                        </span>
-                        <span className="text-[13px] text-white/75 num">
-                          Entry {formatUsd(heroSignal.entry)} → Target{" "}
-                          {formatUsd(heroSignal.target)} (Stop{" "}
-                          {formatUsd(heroSignal.invalidation)})
-                        </span>
-                      </div>
+                  {/* Most Recent Live Signal Card (Rendered only when a real signal exists) */}
+                  {latestSignal && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <CoinIcon symbol={latestSignal.asset} size={22} />
+                          <span className="text-[15px] font-medium text-white">
+                            {latestSignal.pair} · {latestSignal.direction}
+                          </span>
+                          <span className="text-[13px] text-white/75 num">
+                            Entry {formatUsd(latestSignal.entry)} → Target{" "}
+                            {formatUsd(latestSignal.target)} (Stop{" "}
+                            {formatUsd(latestSignal.invalidation)})
+                          </span>
+                        </div>
 
-                      {heroSignal.isExample ? (
-                        <span className="text-[13px] text-white/55">Example</span>
-                      ) : (
                         <span className="text-[13px] text-white/75 num">
-                          {heroSignal.status === "IN_PROGRESS"
-                            ? `24h check in ${countdownTo(heroSignal.verifyAt)}`
-                            : heroSignal.status === "TARGET_REACHED"
+                          {latestSignal.status === "IN_PROGRESS"
+                            ? `24h check in ${countdownTo(latestSignal.verifyAt)}`
+                            : latestSignal.status === "TARGET_REACHED"
                             ? "Target reached"
                             : "Invalidated"}
                         </span>
-                      )}
-                    </div>
+                      </div>
 
-                    <div className="text-[14px] text-white/80 leading-[1.6]">
-                      <span className="text-white font-medium">Memory Audit: </span>
-                      {heroSignal.memoryAudit.summary}
+                      <div className="text-[14px] text-white/80 leading-[1.6]">
+                        <span className="text-white font-medium">Memory Audit: </span>
+                        {latestSignal.memoryAudit.summary}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -401,46 +465,40 @@ export default function HomePage() {
                 Every call follows a three-step record
               </h2>
               <p className="text-[18px] sm:text-[19px] leading-[1.65] text-white/80">
-                {realSignalCount === 0
-                  ? "No live signals have been created in this workspace yet. Below is how a signal moves from entry to 24-hour settlement."
-                  : "Built directly from the latest recorded signal in your ledger."}
+                {latestSignal
+                  ? "Built directly from the latest recorded signal in your ledger."
+                  : "No live signals have been recorded yet. Below is how a signal moves from entry to 24-hour settlement once created."}
               </p>
             </div>
-
-            {walkthroughSignal.isExample && (
-              <span className="text-sm text-white/55 shrink-0">Example</span>
-            )}
           </div>
 
           <div className="glass p-6 sm:p-8 space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
-              <div className="flex items-center gap-3">
-                <CoinIcon symbol={walkthroughSignal.asset} size={36} />
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-[18px] font-semibold text-white">
-                      {walkthroughSignal.pair} {walkthroughSignal.direction}
-                    </span>
-                    <span className="text-[14px] text-white/70 num">
-                      {walkthroughSignal.horizon} window
-                    </span>
-                  </div>
-                  <div className="text-[15px] text-white/80 mt-1 leading-relaxed">
-                    {walkthroughSignal.rationale}
+            {latestSignal && (
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
+                <div className="flex items-center gap-3">
+                  <CoinIcon symbol={latestSignal.asset} size={36} />
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[18px] font-semibold text-white">
+                        {latestSignal.pair} {latestSignal.direction}
+                      </span>
+                      <span className="text-[14px] text-white/70 num">
+                        {latestSignal.horizon} window
+                      </span>
+                    </div>
+                    <div className="text-[15px] text-white/80 mt-1 leading-relaxed">
+                      {latestSignal.rationale}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-3 text-sm">
-                {walkthroughSignal.isExample ? (
-                  <span className="text-white/55">Example</span>
-                ) : (
+                <div className="flex items-center gap-3 text-sm">
                   <span className="text-white/75 num">
-                    Recorded {shortDate(walkthroughSignal.createdAt)}
+                    Recorded {shortDate(latestSignal.createdAt)}
                   </span>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 relative">
               {/* Step 1: Call */}
@@ -457,26 +515,28 @@ export default function HomePage() {
                 <p className="text-[15px] text-white/80 leading-[1.65]">
                   At creation, the live spot quote is recorded from Tatum along with fixed target and invalidation thresholds.
                 </p>
-                <div className="grid grid-cols-3 gap-2.5 pt-2 num">
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-                    <div className="text-xs text-white/60">Entry</div>
-                    <div className="text-[15px] font-semibold text-white mt-0.5">
-                      {formatUsd(walkthroughSignal.entry)}
+                {latestSignal && (
+                  <div className="grid grid-cols-3 gap-2.5 pt-2 num">
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                      <div className="text-xs text-white/60">Entry</div>
+                      <div className="text-[15px] font-semibold text-white mt-0.5">
+                        {formatUsd(latestSignal.entry)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                      <div className="text-xs text-white/60">Target</div>
+                      <div className="text-[15px] font-semibold text-[#19D49A] mt-0.5">
+                        {formatUsd(latestSignal.target)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                      <div className="text-xs text-white/60">Invalidation</div>
+                      <div className="text-[15px] font-semibold text-[#FF4D5E] mt-0.5">
+                        {formatUsd(latestSignal.invalidation)}
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-                    <div className="text-xs text-white/60">Target</div>
-                    <div className="text-[15px] font-semibold text-[#19D49A] mt-0.5">
-                      {formatUsd(walkthroughSignal.target)}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-                    <div className="text-xs text-white/60">Invalidation</div>
-                    <div className="text-[15px] font-semibold text-[#FF4D5E] mt-0.5">
-                      {formatUsd(walkthroughSignal.invalidation)}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Step 2: Recall */}
@@ -493,9 +553,11 @@ export default function HomePage() {
                 <p className="text-[15px] text-white/80 leading-[1.65]">
                   SignalRecall searches stored notes and prior trade outcomes in Walrus Memory to surface historical context for the asset.
                 </p>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-[15px] text-white/85 leading-[1.65]">
-                  “{walkthroughSignal.memoryAudit.summary}”
-                </div>
+                {latestSignal && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-[15px] text-white/85 leading-[1.65]">
+                    “{latestSignal.memoryAudit.summary}”
+                  </div>
+                )}
               </div>
 
               {/* Step 3: Settle */}
@@ -512,39 +574,41 @@ export default function HomePage() {
                 <p className="text-[15px] text-white/80 leading-[1.65]">
                   After 24 hours, the spot rate from Tatum settles the call as target reached or invalidated and writes the outcome back to memory.
                 </p>
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 flex items-center justify-between num">
-                  <div>
-                    <div className="text-xs text-white/60">
-                      {walkthroughSignal.status === "IN_PROGRESS"
-                        ? "Settlement countdown"
-                        : "24h outcome"}
+                {latestSignal && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 flex items-center justify-between num">
+                    <div>
+                      <div className="text-xs text-white/60">
+                        {latestSignal.status === "IN_PROGRESS"
+                          ? "Settlement countdown"
+                          : "24h outcome"}
+                      </div>
+                      <div className="text-[15px] font-semibold text-white mt-0.5">
+                        {latestSignal.status === "IN_PROGRESS"
+                          ? countdownTo(latestSignal.verifyAt)
+                          : latestSignal.status === "TARGET_REACHED"
+                          ? `Target reached (${formatUsd(
+                              latestSignal.settledPrice ?? latestSignal.target
+                            )})`
+                          : `Invalidated (${formatUsd(
+                              latestSignal.settledPrice ?? latestSignal.invalidation
+                            )})`}
+                      </div>
                     </div>
-                    <div className="text-[15px] font-semibold text-white mt-0.5">
-                      {walkthroughSignal.status === "IN_PROGRESS"
-                        ? countdownTo(walkthroughSignal.verifyAt)
-                        : walkthroughSignal.status === "TARGET_REACHED"
-                        ? `Target reached (${formatUsd(
-                            walkthroughSignal.settledPrice ?? walkthroughSignal.target
-                          )})`
-                        : `Invalidated (${formatUsd(
-                            walkthroughSignal.settledPrice ?? walkthroughSignal.invalidation
-                          )})`}
-                    </div>
-                  </div>
 
-                  {walkthroughSignal.pnlPct !== null &&
-                    walkthroughSignal.pnlPct !== undefined && (
-                      <span
-                        className={`text-[15px] font-semibold ${
-                          walkthroughSignal.pnlPct >= 0
-                            ? "text-[#19D49A]"
-                            : "text-[#FF4D5E]"
-                        }`}
-                      >
-                        {formatPct(walkthroughSignal.pnlPct)}
-                      </span>
-                    )}
-                </div>
+                    {latestSignal.pnlPct !== null &&
+                      latestSignal.pnlPct !== undefined && (
+                        <span
+                          className={`text-[15px] font-semibold ${
+                            latestSignal.pnlPct >= 0
+                              ? "text-[#19D49A]"
+                              : "text-[#FF4D5E]"
+                          }`}
+                        >
+                          {formatPct(latestSignal.pnlPct)}
+                        </span>
+                      )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -729,15 +793,13 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Live Track Record Strip (Real Data Rule) */}
+            {/* Live Track Record Strip (Real Data Only) */}
             <div className="glass overflow-hidden">
               <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.08] border-b border-white/[0.08] bg-white/[0.02]">
                 <div className="p-5 sm:p-6">
                   <div className="text-[13px] text-white/65">Recorded signals</div>
                   <div className="text-[18px] font-semibold text-white mt-1 num">
-                    {realSignalCount > 0
-                      ? `${realSignalCount} recorded since ${ledgerStartDate}`
-                      : `Tracking live since ${ledgerStartDate}`}
+                    {realSignalCount} recorded
                   </div>
                 </div>
 
@@ -746,7 +808,7 @@ export default function HomePage() {
                   <div className="text-[18px] font-semibold text-white mt-1 num">
                     {realSettledCount > 0
                       ? `${realSettledCount} settled`
-                      : `24h settlement active`}
+                      : `0 settled`}
                   </div>
                 </div>
 
@@ -755,67 +817,67 @@ export default function HomePage() {
                   <div className="text-[18px] font-medium text-white mt-1 num">
                     {realWinRate !== null
                       ? `Win rate ${realWinRate}%`
-                      : showingExamplesInTrackRecord
-                      ? "3 example signals shown"
-                      : `Available after 10 settled (${ledgerStartDate})`}
+                      : `Available after 10 settled (${realSettledCount}/10)`}
                   </div>
                 </div>
               </div>
 
-              <div className="divide-y divide-white/[0.08]">
-                {trackRecordSignals.map((sig) => {
-                  const hasPnl = sig.pnlPct !== null && sig.pnlPct !== undefined;
-                  const positive = (sig.pnlPct ?? 0) >= 0;
+              {trackRecordSignals.length === 0 ? (
+                <div className="px-6 py-10 text-center text-[15px] text-white/70">
+                  No signals recorded yet. Create a live 24-hour call in the Trading Terminal to build the ledger.
+                </div>
+              ) : (
+                <div className="divide-y divide-white/[0.08]">
+                  {trackRecordSignals.map((sig) => {
+                    const hasPnl = sig.pnlPct !== null && sig.pnlPct !== undefined;
+                    const positive = (sig.pnlPct ?? 0) >= 0;
 
-                  return (
-                    <div
-                      key={sig.id}
-                      className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6 text-[15px]"
-                    >
-                      <div className="flex items-center gap-3 min-w-[160px]">
-                        <CoinIcon symbol={sig.asset} size={24} />
-                        <span className="font-medium text-white">{sig.pair}</span>
-                        <span className="text-[13px] text-white/70">{sig.direction}</span>
-                      </div>
+                    return (
+                      <div
+                        key={sig.id}
+                        className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6 text-[15px]"
+                      >
+                        <div className="flex items-center gap-3 min-w-[160px]">
+                          <CoinIcon symbol={sig.asset} size={24} />
+                          <span className="font-medium text-white">{sig.pair}</span>
+                          <span className="text-[13px] text-white/70">{sig.direction}</span>
+                        </div>
 
-                      <div className="text-[14px] text-white/75 num">
-                        Entry {formatUsd(sig.entry)} →{" "}
-                        {sig.settledPrice !== null
-                          ? `Settled ${formatUsd(sig.settledPrice)}`
-                          : `Target ${formatUsd(sig.target)}`}
-                      </div>
+                        <div className="text-[14px] text-white/75 num">
+                          Entry {formatUsd(sig.entry)} →{" "}
+                          {sig.settledPrice !== null
+                            ? `Settled ${formatUsd(sig.settledPrice)}`
+                            : `Target ${formatUsd(sig.target)}`}
+                        </div>
 
-                      <div className="flex items-center gap-4 ml-auto num">
-                        <span className="text-[14px] text-white/80">
-                          {sig.status === "TARGET_REACHED"
-                            ? "Target reached"
-                            : sig.status === "INVALIDATED"
-                            ? "Invalidated"
-                            : "In progress"}
-                        </span>
-
-                        {hasPnl && (
-                          <span
-                            className={`text-[14px] font-semibold min-w-[60px] text-right ${
-                              positive ? "text-[#19D49A]" : "text-[#FF4D5E]"
-                            }`}
-                          >
-                            {formatPct(sig.pnlPct!)}
+                        <div className="flex items-center gap-4 ml-auto num">
+                          <span className="text-[14px] text-white/80">
+                            {sig.status === "TARGET_REACHED"
+                              ? "Target reached"
+                              : sig.status === "INVALIDATED"
+                              ? "Invalidated"
+                              : "In progress"}
                           </span>
-                        )}
 
-                        {sig.isExample ? (
-                          <span className="text-[13px] text-white/55">Example</span>
-                        ) : (
+                          {hasPnl && (
+                            <span
+                              className={`text-[14px] font-semibold min-w-[60px] text-right ${
+                                positive ? "text-[#19D49A]" : "text-[#FF4D5E]"
+                              }`}
+                            >
+                              {formatPct(sig.pnlPct!)}
+                            </span>
+                          )}
+
                           <span className="text-[13px] text-white/55">
                             {shortDate(sig.createdAt)}
                           </span>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </motion.section>
@@ -931,44 +993,13 @@ export default function HomePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-3.5">
-                    <div className="p-4 rounded-xl border border-[#2F6BFF]/25 bg-[#2F6BFF]/5 space-y-2">
-                      <div className="flex items-center justify-between text-[13px]">
-                        <span className="font-semibold text-[#2F6BFF]">
-                          [PATTERN] BTC Range Reclaim
-                        </span>
-                        <div className="flex items-center gap-2 font-mono text-white/60">
-                          <span>Distance: 0.142</span>
-                          <span>Example</span>
-                        </div>
-                      </div>
-                      <p className="text-[15px] text-white leading-[1.6]">
-                        &ldquo;Observed weekend liquidity grab below 4-hour support with declining funding rate followed by aggressive spot volume bounce.&rdquo;
-                      </p>
-                      <div className="text-xs text-white/60 font-mono flex items-center justify-between pt-1">
-                        <span>Vault: Walrus Memory Mainnet</span>
-                        <span className="text-[#19D49A]">Verified Outcome: +5.4%</span>
-                      </div>
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-8 text-center space-y-2">
+                    <div className="text-[15px] font-semibold text-white">
+                      No memories stored in this vault yet
                     </div>
-
-                    <div className="p-4 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
-                      <div className="flex items-center justify-between text-[13px]">
-                        <span className="font-semibold text-[#6D5EF5]">
-                          [SETTLEMENT] SUI 24h Call
-                        </span>
-                        <div className="flex items-center gap-2 font-mono text-white/60">
-                          <span>Distance: 0.208</span>
-                          <span>Example</span>
-                        </div>
-                      </div>
-                      <p className="text-[15px] text-white/85 leading-[1.6]">
-                        &ldquo;Signal SUI LONG settled at target $0.92. Oracle verified by Tatum. Anchored at Sui Checkpoint #343,658,273.&rdquo;
-                      </p>
-                      <div className="text-xs text-white/60 font-mono flex items-center justify-between pt-1">
-                        <span>Namespace: signalrecall</span>
-                        <span className="text-[#19D49A]">TARGET_REACHED (+9.5%)</span>
-                      </div>
-                    </div>
+                    <p className="text-[14px] text-white/70 leading-[1.6] max-w-md mx-auto">
+                      Store market patterns in the Walrus Memory Bank or record a live 24-hour signal to populate this ledger with encrypted vector memories.
+                    </p>
                   </div>
                 )}
 
@@ -1140,17 +1171,7 @@ export default function HomePage() {
             {/* Left Brand Column */}
             <div className="md:col-span-5 space-y-4">
               <Link href="/" className="flex items-center gap-2.5">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 28 28"
-                  fill="none"
-                  className="shrink-0"
-                  aria-hidden="true"
-                >
-                  <path d="M14 3L25 23H19.4L14 13L8.6 23H3L14 3Z" fill="#2F6BFF" />
-                  <path d="M14 15.5L17.6 22H10.4L14 15.5Z" fill="#6D5EF5" />
-                </svg>
+                <LogoMark size={28} id="footerLogoMark" />
                 <span className="text-lg font-bold tracking-tight text-white">
                   SignalRecall
                 </span>

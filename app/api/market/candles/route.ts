@@ -32,7 +32,7 @@ async function fetchFromKucoin(symbol: CoinSymbol, tf: string): Promise<Candle[]
       {
         signal: controller.signal,
         headers: { "User-Agent": "SignalRecall/2.0" },
-        next: { revalidate: 15 },
+        cache: "no-store",
       }
     );
     clearTimeout(timeout);
@@ -88,7 +88,7 @@ async function fetchFromBinance(symbol: CoinSymbol, tf: string): Promise<Candle[
       {
         headers,
         signal: controller.signal,
-        next: { revalidate: 15 },
+        cache: "no-store",
       }
     );
     clearTimeout(timeout);
@@ -128,7 +128,7 @@ async function fetchFromGate(symbol: CoinSymbol, tf: string): Promise<Candle[] |
       {
         signal: controller.signal,
         headers: { "User-Agent": "SignalRecall/2.0" },
-        next: { revalidate: 15 },
+        cache: "no-store",
       }
     );
     clearTimeout(timeout);
