@@ -24,13 +24,14 @@ export async function POST(req: Request) {
     const userId = session?.user?.id || undefined;
 
     const body = await req.json();
-    const { asset, direction, target, invalidation, confidence, rationale } = body as {
+    const { asset, direction, target, invalidation, confidence, rationale, memoryGrounded } = body as {
       asset: CoinSymbol;
       direction: Direction;
       target?: number;
       invalidation?: number;
       confidence?: number;
       rationale?: string;
+      memoryGrounded?: boolean;
     };
 
     if (!asset || !direction) {
@@ -83,12 +84,13 @@ export async function POST(req: Request) {
       status: "IN_PROGRESS",
       createdAt: now.toISOString(),
       verifyAt,
+      memoryGrounded: Boolean(memoryGrounded),
       rationale: rationale || `Live call anchored at $${entryPrice.toLocaleString()} via Tatum API.`,
       memoryAudit: {
         summary: memwalRes.success
           ? "Encrypted & ingested into Walrus Memory"
           : "Local memory recorded (Walrus Memory not configured)",
-        memoryIds: memwalRes.success ? ["walrus-memory"] : [],
+        memoryIds: memwalRes.success ? [memwalRes.blobId || "walrus-memory"] : [],
       },
       source: "live",
     };

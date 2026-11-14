@@ -6,6 +6,7 @@ import {
   toggleStoredAlert,
 } from "@/lib/server/storage";
 import { auth } from "@/lib/auth";
+import { scoreSingleAlertWithMemory } from "@/lib/server/catalysts";
 import type { Alert, AlertType, CoinSymbol } from "@/lib/types";
 
 export async function GET() {
@@ -31,28 +32,60 @@ export async function POST(req: Request) {
     const userId = session.user.id;
 
     const body = await req.json();
-    const { title, asset, type } = body as {
+    const {
+      title,
+      asset,
+      type,
+      impactScore,
+      impactNote,
+      isAISignal,
+      url,
+      catalystKind,
+      scheduledFor,
+      walrusMemoryMatch,
+    } = body as {
       title: string;
       asset: CoinSymbol;
       type?: AlertType;
+      impactScore?: number | null;
+      impactNote?: string;
+      isAISignal?: boolean;
+      url?: string;
+      catalystKind?: "upcoming" | "recent" | "custom";
+      scheduledFor?: string;
+      walrusMemoryMatch?: string | null;
     };
 
     if (!title || !asset) {
       return NextResponse.json({ error: "Missing required fields: title and asset" }, { status: 400 });
     }
 
+    const scored =
+      impactNote !== undefined
+        ? {
+            impactScore: typeof impactScore === "number" ? impactScore : null,
+            impactNote,
+            type: type || "bullish",
+            walrusMemoryMatch: walrusMemoryMatch ?? null,
+          }
+        : await scoreSingleAlertWithMemory({ title, asset, userId });
+
     const alert: Alert = {
       id: `alt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       userId,
       title,
       asset,
-      type: type || "bullish",
+      type: type || scored.type,
       createdAt: new Date().toISOString(),
       enabled: true,
-      impactScore: 75,
-      impactNote: "User configured alert tracking live market conditions",
-      isAISignal: false,
+      impactScore: scored.impactScore,
+      impactNote: scored.impactNote,
+      isAISignal: Boolean(isAISignal),
       source: "live",
+      url,
+      catalystKind: catalystKind || "custom",
+      scheduledFor,
+      walrusMemoryMatch: scored.walrusMemoryMatch,
     };
 
     const saved = await saveAlert(alert, userId);

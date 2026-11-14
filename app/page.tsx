@@ -21,7 +21,7 @@ import { countdownTo, shortDate } from "@/lib/time";
 import type { Asset, CoinSymbol, Memory, ResolvedSignal, Signal } from "@/lib/types";
 import { formatPct, formatUsd } from "@/lib/utils";
 
-interface EnrichedSignal extends Signal {
+interface EnrichedSignal extends Omit<Signal, "settledPrice" | "pnlPct"> {
   settledPrice: number | null;
   pnlPct: number | null;
 }

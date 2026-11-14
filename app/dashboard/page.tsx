@@ -8,6 +8,7 @@ import { AIOpportunitiesCard } from "@/components/cards/AIOpportunitiesCard";
 import { CandlestickChart } from "@/components/cards/CandlestickChart";
 import { MarketOverviewCard } from "@/components/cards/MarketOverviewCard";
 import { RecentAlertsCard } from "@/components/cards/RecentAlertsCard";
+import { computeSignalPnlPct } from "@/lib/utils";
 import type { Signal } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -55,13 +56,7 @@ export default function DashboardPage() {
     (s) => s.status === "TARGET_REACHED" || s.status === "INVALIDATED"
   );
 
-  const totalPnl = resolvedSignals.reduce((acc, s) => {
-    const isLong = s.direction === "LONG";
-    const pnl = isLong
-      ? ((s.target - s.entry) / s.entry) * 100
-      : ((s.entry - s.target) / s.entry) * 100;
-    return acc + pnl;
-  }, 0);
+  const totalPnl = resolvedSignals.reduce((acc, s) => acc + computeSignalPnlPct(s), 0);
 
   const startDateLabel = React.useMemo(() => {
     const iso =

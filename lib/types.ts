@@ -57,6 +57,12 @@ export interface Signal {
   status: SignalStatus;
   createdAt: string; // ISO
   verifyAt: string; // ISO — when the 24h Tatum check runs
+  verifiedAt?: string; // ISO — when verification actually ran
+  settledPrice?: number;
+  pnlPct?: number;
+  suiCheckpoint?: number;
+  postMortem?: string;
+  memoryGrounded?: boolean;
   rationale: string;
   memoryAudit: { summary: string; memoryIds: string[] };
   source: DataSource;
@@ -79,10 +85,14 @@ export interface Alert {
   asset: CoinSymbol;
   createdAt: string; // ISO
   enabled: boolean;
-  impactScore: number; // historical impact score 0-100 from Walrus memory
+  impactScore: number | null; // historical impact score 0-100 from Walrus memory (null if unscored)
   impactNote: string;
   isAISignal: boolean;
   source: DataSource;
+  url?: string;
+  catalystKind?: "upcoming" | "recent" | "custom";
+  scheduledFor?: string; // ISO for upcoming calendar events
+  walrusMemoryMatch?: string | null;
 }
 
 export interface Holding {

@@ -13,6 +13,7 @@ import { StatCard } from "@/components/cards/StatCard";
 import { CoinIcon } from "@/components/CoinIcon";
 import { Button } from "@/components/ui/button";
 import { shortDate } from "@/lib/time";
+import { computeSignalPnlPct } from "@/lib/utils";
 import type { Signal, SignalStatus } from "@/lib/types";
 
 function StatusPill({ status }: { status: SignalStatus }) {
@@ -71,13 +72,7 @@ export default function HistoryPage() {
   const hasTenSettled = resolved.length >= 10;
   const winRate = hasTenSettled ? (wins / resolved.length) * 100 : 0;
 
-  const totalPnl = resolved.reduce((acc, s) => {
-    const isLong = s.direction === "LONG";
-    const pnl = isLong
-      ? ((s.target - s.entry) / s.entry) * 100
-      : ((s.entry - s.target) / s.entry) * 100;
-    return acc + pnl;
-  }, 0);
+  const totalPnl = resolved.reduce((acc, s) => acc + computeSignalPnlPct(s), 0);
 
   const startDateLabel = React.useMemo(() => {
     const iso =

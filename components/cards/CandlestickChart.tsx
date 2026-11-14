@@ -221,6 +221,7 @@ export function CandlestickChart({ symbol = "BTC", entryPrice = 0 }: Candlestick
           invalidation: analysis.invalidationPrice,
           confidence: analysis.confidence,
           rationale: analysis.insights.join(" "),
+          memoryGrounded: Boolean(analysis.walrusMemoryCitation),
         }),
       });
 

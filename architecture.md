@@ -33,6 +33,7 @@ flowchart TB
         TatumMod["tatum.ts\nSpot rates, 24h deltas, Sui RPC, 24h verify"]
         TechMod["technical.ts\nRSI, EMA, MACD, BB, ATR, S/R"]
         WalrusMod["walrus.ts\nMemWal client & <ns>:<userId> scoping"]
+        CatMod["catalysts.ts\nFinnhub catalysts & MemWal impact scoring"]
         StoreMod["storage.ts\nJSON file read/write & userId filtering"]
     end
 
@@ -90,8 +91,8 @@ SignalRecall enforces a strict server/client split via Next.js App Router:
 - **`/signals`** ([`app/signals/page.tsx`](./app/signals/page.tsx)) — Trading Terminal: `LONG`/`SHORT` signal creation form, candlestick chart, and Signal Registry with **"Check 24h Status"** verification.
 - **`/memory`** ([`app/memory/page.tsx`](./app/memory/page.tsx)) — Walrus Memory Bank: lists `data/memories.json` entries for the signed-in user and opens the **Store Memory** dialog.
 - **`/history`** ([`app/history/page.tsx`](./app/history/page.tsx)) — Filterable (`ALL`, `TARGET_REACHED`, `INVALIDATED`, `IN_PROGRESS`) signal ledger with win-rate and PnL summary cards.
-- **`/track-record`** ([`app/track-record/page.tsx`](./app/track-record/page.tsx)) — Settlement summary cards plus a static `"No Wallet Connected"` portfolio placeholder (on-chain wallet tracking is **Planned**).
-- **`/alerts`** ([`app/alerts/page.tsx`](./app/alerts/page.tsx)) — CRUD UI for user price/catalyst alert definitions (automated background trigger evaluation is **Planned**).
+- **`/track-record`** ([`app/track-record/page.tsx`](./app/track-record/page.tsx)) — Track Record scorecard (Win Rate, Total Calls, Profit Factor, Memory Efficiency) and verified signal post-mortem ledger.
+- **`/alerts`** ([`app/alerts/page.tsx`](./app/alerts/page.tsx)) — Smart Alerts workspace displaying live upcoming/recent Finnhub catalysts with Walrus-backed historical impact scores and user-tracked alerts.
 
 ### API Route Handlers (`app/api/**`)
 
@@ -106,7 +107,8 @@ SignalRecall enforces a strict server/client split via Next.js App Router:
 | `/api/signals` | `GET`, `POST` | Scoped if signed in | `storage.ts`, `tatum.ts`, `walrus.ts` | `GET` lists user signals; `POST` locks live entry price and ingests signal creation into Walrus Memory. |
 | `/api/signals/verify` | `POST` | Owner check if `signal.userId` set | `storage.ts`, `tatum.ts`, `walrus.ts` | Evaluates `TARGET_REACHED` / `INVALIDATED` / `IN_PROGRESS` against live price + Sui checkpoint, and writes outcome to Walrus Memory. |
 | `/api/walrus` | `GET`, `POST` | `POST` requires session (`401`) | `storage.ts`, `walrus.ts` | `GET` returns user memories & MemWal status (or vector recall if `?query=` is provided); `POST` commits new memory via `rememberSignalMemory()`. |
-| `/api/alerts` | `GET`, `POST`, `PUT`, `DELETE` | Mutations require session (`401`) | `storage.ts` | Manages user-scoped alert definitions in `data/alerts.json`. |
+| `/api/alerts` | `GET`, `POST`, `PUT`, `DELETE` | Mutations require session (`401`) | `storage.ts`, `catalysts.ts` | Manages user-scoped alerts in `data/alerts.json` and scores custom alerts via `scoreSingleAlertWithMemory()`. |
+| `/api/alerts/catalysts` | `GET` | Scoped if signed in | `catalysts.ts` | Fetches live upcoming/recent Finnhub catalysts and scores historical impact (0–100) using Walrus Memory + OpenRouter. |
 | `/api/ai/chat` | `POST` | Scoped if signed in | `tatum.ts`, `technical.ts`, `walrus.ts`, `storage.ts` | Grounds OpenRouter chat completion on live prices, 4H indicators, user signals, and Walrus Memory recall. |
 | `/api/ai/chart-analysis` | `POST` | Scoped if signed in | `tatum.ts`, `technical.ts`, `walrus.ts` | Computes OHLCV technical indicators, recalls Walrus Memory precedent, and requests structured JSON setup from OpenRouter. |
 

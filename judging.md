@@ -38,10 +38,12 @@ Judges can evaluate the live hosted deployment at **[https://signal-recall.up.ra
 3. The drawer displays the bias, confidence, entry/target/stop levels, and any **Walrus Memory Citation** found.
 4. Click **Turn Into 24h Signal** (or submit the form directly on `/signals`) to call `POST /api/signals`, which locks the server-side spot price and ingests a `"Signal created: ..."` fact into Walrus Memory.
 
-### Step 5: Objective Verification & Memory Loop (`/signals`, `/history`, AI Panel)
+### Step 5: Objective Verification, Post-Mortems & Track Record (`/signals`, `/track-record`, `/alerts`, AI Panel)
 1. On `/signals`, click **Check 24h Status** on an `IN_PROGRESS` signal. (The UI passes `force: true` to `POST /api/signals/verify` so judges can test settlement immediately without waiting 24 real hours; without `force: true`, the API enforces `now >= verifyAt`.)
-2. The server fetches the live spot price and current Sui Mainnet checkpoint (`verifySignalWithTatum`), computes `TARGET_REACHED`, `INVALIDATED`, or `IN_PROGRESS` plus `pnlPct`, updates the signal record, and calls `rememberSignalMemory()` to store the verified outcome and Sui checkpoint in Walrus Memory.
-3. Open the **SignalRecall AI** right-hand panel (`POST /api/ai/chat`) and ask about that asset (e.g., *"What do you remember about BTC?"*): the server injects both semantic matches from `recallSignalMemories()` and keyword matches from `data/memories.json` alongside live prices and 4H indicators.
+2. The server fetches the live spot price and current Sui Mainnet checkpoint (`verifySignalWithTatum`), computes `TARGET_REACHED`, `INVALIDATED`, or `IN_PROGRESS` plus `pnlPct`, generates an automatic AI post-mortem, stores the outcome + post-mortem in Walrus Memory (`rememberSignalMemory()`), and saves an `"outcome"` memory entry in `data/memories.json`.
+3. Open **Track Record** (`/track-record`) to inspect **Win Rate**, **Total Calls**, **Profit Factor**, **Memory Efficiency**, and the settled post-mortem ledger.
+4. Open **Smart Alerts** (`/alerts`) to inspect live upcoming/recent catalysts scored against Walrus Memory (`GET /api/alerts/catalysts`) and track any catalyst with 1 click.
+5. Open the **SignalRecall AI** right-hand panel (`POST /api/ai/chat`) and ask about that asset (e.g., *"What do you remember about BTC?"*): the server injects both semantic matches from `recallSignalMemories()` and keyword matches from `data/memories.json` alongside live prices and 4H indicators.
 
 ---
 
@@ -77,11 +79,14 @@ curl -s https://signal-recall.up.railway.app/api/market/prices
 # 3. Verify live multi-exchange OHLCV candles (KuCoin -> Binance -> Gate.io)
 curl -s "https://signal-recall.up.railway.app/api/market/candles?symbol=BTC&tf=1D"
 
-# 4. Verify unauthenticated isolation (returns empty arrays, authenticated: false, and MemWal status)
+# 4. Verify live catalysts & historical impact scoring
+curl -s https://signal-recall.up.railway.app/api/alerts/catalysts
+
+# 5. Verify unauthenticated isolation (returns empty arrays, authenticated: false, and MemWal status)
 curl -s https://signal-recall.up.railway.app/api/signals
 curl -s https://signal-recall.up.railway.app/api/walrus
 
-# 5. Local static typecheck & production build verification (in cloned repo)
+# 6. Local static typecheck & production build verification (in cloned repo)
 npm run typecheck
 npm run build
 ```

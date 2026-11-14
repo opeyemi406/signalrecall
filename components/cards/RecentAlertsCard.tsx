@@ -66,7 +66,7 @@ export function RecentAlertsCard() {
               </div>
 
               <span className="shrink-0 rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] text-fg-2 num">
-                Impact {alert.impactScore}
+                {alert.impactScore !== null ? `Impact ${alert.impactScore}` : "Unscored"}
               </span>
             </div>
           ))}

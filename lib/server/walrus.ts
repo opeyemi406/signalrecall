@@ -73,7 +73,7 @@ export function getMemWalClient(userId?: string) {
 export async function rememberSignalMemory(
   text: string,
   userId?: string
-): Promise<{ success: boolean; memoryText: string; namespace: string; error?: string }> {
+): Promise<{ success: boolean; memoryText: string; namespace: string; blobId?: string; error?: string }> {
   const namespace = getUserNamespace(userId);
   if (!isMemWalConfigured()) {
     return {
@@ -86,8 +86,13 @@ export async function rememberSignalMemory(
 
   try {
     const client = getMemWalClient(userId);
-    await client.rememberAndWait(text, namespace, { timeoutMs: 30_000 });
-    return { success: true, memoryText: text, namespace };
+    const result = await client.rememberAndWait(text, namespace, { timeoutMs: 30_000 });
+    return {
+      success: true,
+      memoryText: text,
+      namespace,
+      blobId: result?.blob_id || undefined,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, memoryText: text, namespace, error: msg };

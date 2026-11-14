@@ -1,22 +1,31 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import { StatCard } from "@/components/cards/StatCard";
 import { GlassCard } from "@/components/GlassCard";
+import { CoinIcon } from "@/components/CoinIcon";
 import { Button } from "@/components/ui/button";
-import type { Signal } from "@/lib/types";
+import { computeSignalPnlPct } from "@/lib/utils";
+import { shortDate } from "@/lib/time";
+import type { Memory, Signal } from "@/lib/types";
 
 export default function TrackRecordPage() {
   const [signals, setSignals] = React.useState<Signal[]>([]);
+  const [memories, setMemories] = React.useState<Memory[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/signals");
-      const data = await res.json();
-      setSignals(data.signals || []);
+      const [sigRes, memRes] = await Promise.all([
+        fetch("/api/signals"),
+        fetch("/api/walrus"),
+      ]);
+      const sigData = await sigRes.json();
+      const memData = await memRes.json();
+      setSignals(sigData.signals || []);
+      setMemories(memData.memories || []);
     } catch {
       // ignore
     } finally {
@@ -31,30 +40,44 @@ export default function TrackRecordPage() {
   const resolved = signals.filter(
     (s) => s.status === "TARGET_REACHED" || s.status === "INVALIDATED"
   );
+  const activeCount = signals.filter((s) => s.status === "IN_PROGRESS").length;
   const wins = resolved.filter((s) => s.status === "TARGET_REACHED").length;
   const losses = resolved.filter((s) => s.status === "INVALIDATED").length;
-  const hasTenSettled = resolved.length >= 10;
-  const winRate = hasTenSettled ? (wins / resolved.length) * 100 : 0;
+  const winRate = resolved.length > 0 ? (wins / resolved.length) * 100 : 0;
 
-  const totalPnl = resolved.reduce((acc, s) => {
-    const isLong = s.direction === "LONG";
-    const pnl = isLong
-      ? ((s.target - s.entry) / s.entry) * 100
-      : ((s.entry - s.target) / s.entry) * 100;
-    return acc + pnl;
-  }, 0);
+  // Profit Factor = Gross Profit (%) / Gross Loss (%)
+  const { grossProfit, grossLoss, profitFactor } = React.useMemo(() => {
+    let gp = 0;
+    let gl = 0;
+    for (const s of resolved) {
+      const pnl = computeSignalPnlPct(s);
+      if (pnl > 0) gp += pnl;
+      else if (pnl < 0) gl += Math.abs(pnl);
+    }
+    const pf = gl > 0 ? gp / gl : gp > 0 ? gp : 0;
+    return { grossProfit: gp, grossLoss: gl, profitFactor: pf };
+  }, [resolved]);
 
-  const startDateLabel = React.useMemo(() => {
-    const iso =
-      signals.length > 0
-        ? signals[signals.length - 1].createdAt
-        : new Date().toISOString();
-    return new Date(iso).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }, [signals]);
+  // Memory Efficiency = Win rate of memory-grounded signals (or Walrus-anchored settled ratio)
+  const { memoryEfficiency, memoryEfficiencyNote } = React.useMemo(() => {
+    const groundedResolved = resolved.filter(
+      (s) => s.memoryGrounded || (s.memoryAudit?.memoryIds?.length ?? 0) > 0
+    );
+    if (groundedResolved.length > 0) {
+      const groundedWins = groundedResolved.filter((s) => s.status === "TARGET_REACHED").length;
+      const pct = (groundedWins / groundedResolved.length) * 100;
+      return {
+        memoryEfficiency: pct,
+        memoryEfficiencyNote: `${groundedWins}/${groundedResolved.length} Walrus-backed wins`,
+      };
+    }
+    return {
+      memoryEfficiency: 0,
+      memoryEfficiencyNote: `${memories.length} Walrus memories stored`,
+    };
+  }, [resolved, memories.length]);
+
+  const netPnl = grossProfit - grossLoss;
 
   return (
     <div className="space-y-6">
@@ -65,7 +88,7 @@ export default function TrackRecordPage() {
             Track Record
           </h1>
           <p className="text-sm text-fg-2 mt-0.5">
-            24-hour settlement metrics and ledger history
+            24-hour settlement scorecard, profit factor, and Walrus Memory post-mortems
           </p>
         </div>
 
@@ -80,59 +103,144 @@ export default function TrackRecordPage() {
         </Button>
       </div>
 
-      {/* 3 Real Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      {/* 4 Real Track Record Scorecard Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
         <StatCard
           label="Win Rate"
           value={winRate}
           suffix="%"
           decimals={1}
           deltaLabel={
-            hasTenSettled
-              ? `${wins}W / ${losses}L`
-              : "Available after 10 settled"
-          }
-          deltaPositive={true}
-        />
-
-        <StatCard
-          label="Total P&L"
-          value={Math.abs(totalPnl)}
-          prefix={totalPnl >= 0 ? "+" : "-"}
-          suffix="%"
-          decimals={2}
-          deltaLabel={
             resolved.length > 0
-              ? `${resolved.length} settled calls`
-              : "Awaiting 24h settlement"
+              ? `${wins}W / ${losses}L (${netPnl >= 0 ? "+" : ""}${netPnl.toFixed(2)}% net)`
+              : "Awaiting settled calls"
           }
-          deltaPositive={totalPnl >= 0}
+          deltaPositive={winRate >= 50 || resolved.length === 0}
         />
 
         <StatCard
-          label="Recorded Ledger"
+          label="Total Calls"
           value={signals.length}
           suffix=" Calls"
-          deltaLabel="Tatum 24h Settlement"
+          deltaLabel={`${resolved.length} settled · ${activeCount} active`}
           deltaPositive={true}
+        />
+
+        <StatCard
+          label="Profit Factor"
+          value={profitFactor}
+          decimals={2}
+          deltaLabel={
+            resolved.length === 0
+              ? "Awaiting settled calls"
+              : grossLoss === 0 && grossProfit > 0
+              ? `Zero realized losses (+${grossProfit.toFixed(2)}%)`
+              : `+${grossProfit.toFixed(2)}% / -${grossLoss.toFixed(2)}%`
+          }
+          deltaPositive={profitFactor >= 1 || resolved.length === 0}
+        />
+
+        <StatCard
+          label="Memory Efficiency"
+          value={memoryEfficiency}
+          suffix="%"
+          decimals={1}
+          deltaLabel={memoryEfficiencyNote}
+          deltaPositive={memoryEfficiency >= 50 || resolved.length === 0}
         />
       </div>
 
-      {/* Portfolio / Holdings Integration Section */}
+      {/* Settled Signal Post-Mortems & Walrus Memory Audit */}
       <GlassCard variant="tint" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[16px] font-medium text-white">On-Chain Portfolio Holdings</h3>
-          <span className="text-xs text-fg-3">
-            Multi-chain asset tracking
+          <div>
+            <h3 className="text-[16px] font-medium text-white">
+              Verified Outcomes &amp; Automatic Post-Mortems ({resolved.length})
+            </h3>
+            <p className="text-xs text-fg-3 mt-0.5">
+              Every settled signal is verified against live rates and written into Walrus Memory
+            </p>
+          </div>
+          <span className="text-xs text-fg-3 font-mono">
+            {memories.length} Vault Memories
           </span>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center space-y-2">
-          <div className="text-base font-semibold text-white">No Wallet Connected</div>
-          <p className="text-sm text-fg-2 max-w-md mx-auto leading-relaxed">
-            SignalRecall does not present fabricated wallet balances. Connect a public address or configure wallet tracking credentials to view live on-chain balances.
-          </p>
-        </div>
+        {resolved.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center space-y-2">
+            <div className="text-base font-semibold text-white">No Settled Signals Yet</div>
+            <p className="text-sm text-fg-2 max-w-md mx-auto leading-relaxed">
+              Record a 24h signal in the Trading Terminal and run verification to populate Profit Factor, Memory Efficiency, and automatic Walrus post-mortems.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {resolved.map((sig) => {
+              const pnl = computeSignalPnlPct(sig);
+              const isWin = sig.status === "TARGET_REACHED";
+
+              return (
+                <div
+                  key={sig.id}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <CoinIcon symbol={sig.asset} size={34} />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">
+                            {sig.pair} {sig.direction}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full border ${
+                              isWin
+                                ? "bg-[#19D49A]/15 text-[#19D49A] border-[#19D49A]/30"
+                                : "bg-[#FF4D5E]/15 text-[#FF4D5E] border-[#FF4D5E]/30"
+                            }`}
+                          >
+                            {isWin ? (
+                              <CheckCircle2 className="size-3" />
+                            ) : (
+                              <XCircle className="size-3" />
+                            )}
+                            {sig.status.replace("_", " ")}
+                          </span>
+                        </div>
+                        <div className="text-xs text-fg-2 num mt-0.5">
+                          Entry: ${sig.entry.toLocaleString()}
+                          {sig.settledPrice != null && ` · Settled: $${sig.settledPrice.toLocaleString()}`}
+                          {sig.suiCheckpoint && ` · Sui #${sig.suiCheckpoint.toLocaleString()}`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right num">
+                      <div
+                        className={`text-sm font-semibold ${
+                          pnl >= 0 ? "text-[#19D49A]" : "text-[#FF4D5E]"
+                        }`}
+                      >
+                        {pnl >= 0 ? "+" : ""}
+                        {pnl.toFixed(2)}%
+                      </div>
+                      <div className="text-[11px] text-fg-3">
+                        {shortDate(sig.verifiedAt || sig.verifyAt)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {sig.postMortem && (
+                    <div className="rounded-xl border border-white/5 bg-black/25 p-3 text-xs text-fg-2 leading-relaxed">
+                      <span className="text-electric font-semibold mr-1.5">Walrus Post-Mortem:</span>
+                      {sig.postMortem}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </GlassCard>
     </div>
   );
