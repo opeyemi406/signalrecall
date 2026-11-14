@@ -27,13 +27,13 @@ export function StatCard({
   deltaPositive = true,
 }: StatCardProps) {
   return (
-    <GlassCard interactive className="flex flex-col justify-between min-h-[146px] overflow-hidden min-w-0">
+    <GlassCard interactive className="flex flex-col justify-between min-h-[146px] min-w-0">
       {/* Top row: Label on left, Delta badge on right */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-fg-2 truncate">
+      <div className="flex items-center justify-between gap-2 flex-wrap min-w-0">
+        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-fg-2 min-w-0 truncate">
           {label}
         </div>
-        <div className="min-w-0 shrink-0">
+        <div className="min-w-0 max-w-full">
           <DeltaChip label={deltaLabel} positive={deltaPositive} />
         </div>
       </div>

@@ -100,12 +100,12 @@ export default function MemoryBankPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-[28px] font-semibold tracking-tight text-white">
               Walrus Memory Bank
             </h1>
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border shrink-0 ${
                 status.configured
                   ? "border-[#19D49A]/30 bg-[#19D49A]/10 text-[#19D49A]"
                   : "border-[#F5A623]/30 bg-[#F5A623]/10 text-[#F5A623]"
@@ -249,7 +249,7 @@ export default function MemoryBankPage() {
 
       {/* Main Glass Memory Ledger */}
       <GlassCard variant="tint" className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[16px] font-medium text-white">
             Memory Vault ({memories.length} Entries)
           </h3>
@@ -274,9 +274,9 @@ export default function MemoryBankPage() {
             {memories.map((m) => (
               <div
                 key={m.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3 hover:bg-white/[0.05] transition-colors"
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3 hover:bg-white/[0.05] transition-colors min-w-0"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-electric uppercase tracking-wider">
                     {m.kind} {m.asset ? `· ${m.asset}` : ""}
                   </span>
@@ -285,9 +285,9 @@ export default function MemoryBankPage() {
                   </span>
                 </div>
 
-                <div>
-                  <h4 className="text-base font-semibold text-white">{m.title}</h4>
-                  <p className="text-sm text-fg-2 mt-1 leading-relaxed">{m.body}</p>
+                <div className="min-w-0">
+                  <h4 className="text-base font-semibold text-white break-words">{m.title}</h4>
+                  <p className="text-sm text-fg-2 mt-1 leading-relaxed break-words">{m.body}</p>
                 </div>
 
                 {m.outcome && (

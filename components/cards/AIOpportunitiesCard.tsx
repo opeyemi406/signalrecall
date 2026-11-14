@@ -25,7 +25,7 @@ export function AIOpportunitiesCard() {
 
   return (
     <GlassCard interactive className="flex flex-col justify-between">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[16px] font-medium text-white">Active Signals</h3>
         <span className="text-[11px] text-fg-3 uppercase tracking-wider">
           24h Verification
@@ -50,21 +50,21 @@ export function AIOpportunitiesCard() {
             <Link
               key={sig.id}
               href="/signals"
-              className="glass-pill flex items-center justify-between rounded-2xl px-4 py-3 hover:bg-white/[0.07] transition-colors"
+              className="glass-pill flex items-center justify-between gap-3 rounded-2xl px-4 py-3 hover:bg-white/[0.07] transition-colors"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <CoinIcon symbol={sig.asset} size={32} />
-                <div>
-                  <div className="text-sm font-medium text-white leading-tight">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-white leading-tight truncate">
                     {sig.asset} {sig.direction}
                   </div>
-                  <div className="text-[11px] text-fg-2 leading-tight mt-0.5">
+                  <div className="text-[11px] text-fg-2 leading-tight mt-0.5 truncate">
                     Target: ${sig.target.toLocaleString()} · {sig.horizon}
                   </div>
                 </div>
               </div>
 
-              <span className="text-sm font-semibold text-white num">
+              <span className="text-sm font-semibold text-white num shrink-0">
                 {sig.confidence}%
               </span>
             </Link>

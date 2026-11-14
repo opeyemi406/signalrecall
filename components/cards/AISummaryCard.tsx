@@ -31,13 +31,13 @@ export function AISummaryCard() {
     <GlassCard variant="blue" interactive className="flex flex-col justify-between">
       <div>
         {/* Top Row: Title + Updated Pill */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <LogoMark size={24} id="aiSummaryLogoMark" />
-            <h3 className="text-[16px] font-medium text-white">AI Market Intelligence</h3>
+            <h3 className="text-[16px] font-medium text-white truncate">AI Market Intelligence</h3>
           </div>
 
-          <span className="glass-pill inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] text-fg-2">
+          <span className="glass-pill inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] text-fg-2 shrink-0">
             <Clock className="size-3 text-fg-2" />
             <span>Real-time</span>
           </span>
@@ -68,7 +68,7 @@ export function AISummaryCard() {
       </div>
 
       {/* Bottom Row */}
-      <div className="mt-6 flex items-center justify-between pt-2">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 pt-2">
         <span className="text-xs font-medium text-fg-2">
           {signalCount} Tracked Calls
         </span>

@@ -152,7 +152,7 @@ export default function SignalsPage() {
           <h1 className="text-[28px] font-semibold tracking-tight text-white">
             Trading Terminal
           </h1>
-          <div className="mt-1 flex items-center gap-2.5 text-sm text-fg-2 num">
+          <div className="mt-1 flex flex-wrap items-center gap-2.5 text-sm text-fg-2 num">
             <span>
               {selectedAsset} / USD —{" "}
               {currentSpotPrice ? formatUsd(currentSpotPrice) : priceUnavailable ? "Price unavailable" : "Price streaming via Tatum"}
@@ -226,7 +226,7 @@ export default function SignalsPage() {
         <form onSubmit={handleCreateSignal} className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* BUY / SELL Segmented Pill */}
-            <div className="inline-flex items-center rounded-full bg-white/[0.04] border border-white/10 p-1">
+            <div className="inline-flex max-w-full items-center rounded-full bg-white/[0.04] border border-white/10 p-1">
               {(["LONG", "SHORT"] as const).map((mode) => {
                 const active = side === mode;
                 return (
@@ -234,7 +234,7 @@ export default function SignalsPage() {
                     key={mode}
                     type="button"
                     onClick={() => setSide(mode)}
-                    className={`rounded-full px-6 py-1.5 text-xs font-semibold tracking-wide transition-all ${
+                    className={`rounded-full px-4 sm:px-6 py-1.5 text-xs font-semibold tracking-wide transition-all whitespace-nowrap ${
                       active
                         ? "bg-white text-ink shadow-[0_4px_18px_rgba(255,255,255,0.25)]"
                         : "text-fg-2 hover:text-white"
@@ -342,15 +342,15 @@ export default function SignalsPage() {
                   className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <CoinIcon symbol={sig.asset} size={36} />
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold text-white">
                             {sig.asset} {sig.direction}
                           </span>
                           <span
-                            className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${
+                            className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
                               sig.status === "TARGET_REACHED"
                                 ? "bg-[#19D49A]/15 text-[#19D49A] border border-[#19D49A]/30"
                                 : sig.status === "INVALIDATED"
@@ -361,7 +361,7 @@ export default function SignalsPage() {
                             {sig.status.replace("_", " ")}
                           </span>
                         </div>
-                        <div className="text-xs text-fg-2 num mt-0.5">
+                        <div className="text-xs text-fg-2 num mt-0.5 break-words">
                           Entry: ${sig.entry.toLocaleString()} · Target: ${sig.target.toLocaleString()} · Stop: ${sig.invalidation.toLocaleString()}
                         </div>
                       </div>

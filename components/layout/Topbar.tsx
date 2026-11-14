@@ -50,7 +50,7 @@ export function Topbar({
   return (
     <header className="flex items-center justify-between gap-2 sm:gap-4 px-3.5 sm:px-6 pt-4 sm:pt-5 pb-3 shrink-0 min-w-0">
       {/* Left: Glass Pill Search Input */}
-      <div className="relative w-28 xs:w-36 sm:w-56 md:w-72 shrink-0">
+      <div className="relative flex-1 min-w-0 max-w-[140px] sm:max-w-[240px] md:max-w-[288px]">
         <input
           type="search"
           value={searchQuery}
@@ -76,14 +76,14 @@ export function Topbar({
           <span className="hidden md:inline">AI Partner</span>
         </button>
 
-        <button
-          type="button"
+        <Link
+          href="/alerts"
           aria-label="Notifications"
           className="glass-pill relative inline-flex size-9 sm:size-10 items-center justify-center rounded-full text-fg-2 hover:text-white hover:bg-white/[0.08] transition-colors shrink-0"
         >
           <Bell className="size-3.5 sm:size-4" />
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-electric" />
-        </button>
+        </Link>
 
         {user && (
           <DropdownMenu>

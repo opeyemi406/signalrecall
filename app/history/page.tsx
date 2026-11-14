@@ -228,7 +228,7 @@ export default function HistoryPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <CoinIcon symbol={row.asset} size={36} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-white">
                         {row.pair}
                       </span>
@@ -243,13 +243,13 @@ export default function HistoryPage() {
                       </span>
                       <StatusPill status={row.status} />
                     </div>
-                    <div className="text-xs text-fg-2 num mt-1">
+                    <div className="text-xs text-fg-2 num mt-1 break-words">
                       Entry: ${row.entry.toLocaleString()} · Target: ${row.target.toLocaleString()} · Invalidation: ${row.invalidation.toLocaleString()}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between md:justify-end gap-4 text-xs num border-t md:border-t-0 pt-2 md:pt-0 border-white/5">
+                <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 sm:gap-4 text-xs num border-t md:border-t-0 pt-2 md:pt-0 border-white/5 shrink-0">
                   <div className="text-left md:text-right">
                     <div className="text-fg-3 text-[11px]">Timestamp</div>
                     <div className="text-fg-2">{shortDate(row.createdAt)}</div>

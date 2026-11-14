@@ -38,7 +38,7 @@ export function MarketOverviewCard() {
 
   return (
     <GlassCard variant="tint" className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[16px] font-medium text-white">Market Overview</h3>
         <div className="flex items-center gap-2">
           <span
@@ -95,19 +95,19 @@ export function MarketOverviewCard() {
                 }}
                 className="flex cursor-pointer items-center justify-between px-4 py-3"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <CoinIcon symbol={asset.symbol} size={34} />
-                  <div>
-                    <div className="text-sm font-semibold text-white leading-tight">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-white leading-tight truncate">
                       {asset.symbol}
                     </div>
-                    <div className="text-[11px] text-fg-2 leading-tight mt-0.5">
+                    <div className="text-[11px] text-fg-2 leading-tight mt-0.5 truncate">
                       {asset.name}
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right num">
+                <div className="text-right num shrink-0">
                   <div
                     className={`text-sm font-semibold ${asset.unavailableReason ? "text-[#F5A623]" : "text-white"}`}
                     title={asset.unavailableReason}

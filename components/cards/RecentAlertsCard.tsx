@@ -25,7 +25,7 @@ export function RecentAlertsCard() {
 
   return (
     <GlassCard variant="tint" className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[16px] font-medium text-white">Recent Alerts</h3>
         <Link
           href="/alerts"
