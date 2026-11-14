@@ -371,7 +371,7 @@ export async function fetchAndScoreCatalysts(userId?: string): Promise<{
           model: openrouterModel,
           reasoning: { effort: "low" },
           temperature: 0.2,
-          max_tokens: 1500,
+          max_tokens: 4096,
           messages: [
             {
               role: "system",
@@ -386,11 +386,16 @@ export async function fetchAndScoreCatalysts(userId?: string): Promise<{
         }),
       });
 
-      if (res.ok) {
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error("[catalysts] OpenRouter non-OK response:", res.status, errText.slice(0, 300));
+      } else {
         const json = await res.json();
         const raw = (json?.choices?.[0]?.message?.content || "").replace(/```json|```/g, "").trim();
         const arrMatch = raw.match(/\[[\s\S]*\]/);
-        if (arrMatch) {
+        if (!arrMatch) {
+          console.error("[catalysts] OpenRouter response missing JSON array:", raw.slice(0, 300));
+        } else {
           const parsed = JSON.parse(arrMatch[0]) as Array<{
             id: string;
             asset?: string;
@@ -419,7 +424,8 @@ export async function fetchAndScoreCatalysts(userId?: string): Promise<{
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("[catalysts] Scoring failed:", err instanceof Error ? err.message : err);
       // leave scoredById empty -> scores remain null rather than fabricated
     }
   }
