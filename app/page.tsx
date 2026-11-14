@@ -1084,11 +1084,11 @@ export default function HomePage() {
                 <div className="flex items-center justify-between">
                   <span className="text-[17px] font-semibold text-white">CoinMarketCap API</span>
                   <span className="text-xs font-mono text-[#6D5EF5] bg-[#6D5EF5]/10 px-2.5 py-0.5 rounded-full">
-                    Metadata
+                    Market Quotes
                   </span>
                 </div>
                 <p className="text-[15px] text-white/80 leading-[1.65]">
-                  Supplies asset metadata, official circulating supply stats, and token dilution risk analytics.
+                  Supplies spot quote fallbacks, 24h market deltas, volume telemetry, and local asset iconography.
                 </p>
               </div>
 
@@ -1100,7 +1100,7 @@ export default function HomePage() {
                   </span>
                 </div>
                 <p className="text-[15px] text-white/80 leading-[1.65]">
-                  Institutional crypto headlines and Bitcoin/Ethereum ETF net flow news streaming to the market wire.
+                  Streams real-time crypto market news and catalyst headlines for AI impact scoring.
                 </p>
               </div>
             </div>

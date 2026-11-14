@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { verifySignal } from "@/lib/tatum";
 import { timeAgo, shortDate } from "@/lib/time";
 import { formatUsd } from "@/lib/utils";
+import { SearchContext } from "@/components/layout/AppShell";
 import { SUPPORTED_COINS, type CoinSymbol, type Direction, type Signal } from "@/lib/types";
 
 export default function SignalsPage() {
+  const { query: globalQuery } = React.useContext(SearchContext);
   const [side, setSide] = React.useState<Direction>("LONG");
   const [selectedAsset, setSelectedAsset] = React.useState<CoinSymbol>("BTC");
   const [currentSpotPrice, setCurrentSpotPrice] = React.useState<number | null>(null);
@@ -322,16 +324,30 @@ export default function SignalsPage() {
           </div>
         </div>
 
-        {signals.length === 0 ? (
+        {(() => {
+          const q = globalQuery.trim().toLowerCase();
+          const visibleSignals = q
+            ? signals.filter((sig) =>
+                `${sig.asset} ${sig.pair} ${sig.direction} ${sig.status} ${sig.rationale} ${sig.id}`
+                  .toLowerCase()
+                  .includes(q)
+              )
+            : signals;
+
+          if (visibleSignals.length === 0) {
+            return (
           <div className="py-12 text-center text-xs text-fg-3 space-y-2">
-            <p>No trading signals recorded yet.</p>
+            <p>{q ? "No signals matching your search." : "No trading signals recorded yet."}</p>
             <p className="text-fg-2 max-w-sm mx-auto">
               Use the terminal above to record a live call. Signals persist to local ledger and are verified objectively after 24 hours.
             </p>
           </div>
-        ) : (
+            );
+          }
+
+          return (
           <div className="space-y-3">
-            {signals.map((sig) => {
+            {visibleSignals.map((sig) => {
               const isExpanded = expandedId === sig.id;
               const isPending = sig.status === "IN_PROGRESS";
               const isVerifying = verifyingId === sig.id;
@@ -409,7 +425,8 @@ export default function SignalsPage() {
               );
             })}
           </div>
-        )}
+          );
+        })()}
       </GlassCard>
     </div>
   );

@@ -61,6 +61,7 @@ export interface Signal {
   settledPrice?: number;
   pnlPct?: number;
   suiCheckpoint?: number;
+  suiDigest?: string;
   postMortem?: string;
   memoryGrounded?: boolean;
   rationale: string;

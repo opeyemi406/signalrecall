@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SUPPORTED_COINS, type Alert, type AlertType, type CoinSymbol } from "@/lib/types";
+import { SearchContext } from "@/components/layout/AppShell";
 import { timeAgo } from "@/lib/time";
 import type { LiveCatalyst } from "@/lib/server/catalysts";
 
@@ -188,6 +189,23 @@ export default function AlertsPage() {
     [items]
   );
 
+  const { query: globalQuery } = React.useContext(SearchContext);
+  const q = globalQuery.trim().toLowerCase();
+  const visibleCatalysts = q
+    ? catalysts.filter((c) =>
+        `${c.title} ${c.summary} ${c.asset} ${c.source} ${c.type} ${c.impactNote || ""}`
+          .toLowerCase()
+          .includes(q)
+      )
+    : catalysts;
+  const visibleItems = q
+    ? items.filter((a) =>
+        `${a.title} ${a.asset} ${a.type} ${a.impactNote || ""}`
+          .toLowerCase()
+          .includes(q)
+      )
+    : items;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -300,7 +318,7 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {catalysts.map((c) => {
+            {visibleCatalysts.map((c) => {
               const barColor = ACCENT_COLORS[c.type] || "#19D49A";
               const alreadyTracked = trackedTitles.has(c.title.toLowerCase());
               const isTracking = trackingId === c.id;
@@ -389,7 +407,7 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map((alert) => {
+            {visibleItems.map((alert) => {
               const barColor = ACCENT_COLORS[alert.type] || "#19D49A";
 
               return (

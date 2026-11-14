@@ -5,8 +5,11 @@ import {
   Plus,
   RefreshCw,
   KeyRound,
+  Search,
+  Sparkles,
 } from "lucide-react";
 import { GlassCard } from "@/components/GlassCard";
+import { SearchContext } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +30,7 @@ interface WalrusStatus {
 }
 
 export default function MemoryBankPage() {
+  const { query: globalQuery } = React.useContext(SearchContext);
   const [memories, setMemories] = React.useState<Memory[]>([]);
   const [status, setStatus] = React.useState<WalrusStatus>({ configured: true });
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -37,6 +41,10 @@ export default function MemoryBankPage() {
   const [saving, setSaving] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [recallQuery, setRecallQuery] = React.useState("");
+  const [recalling, setRecalling] = React.useState(false);
+  const [recallResults, setRecallResults] = React.useState<Array<{ text: string; distance?: number }> | null>(null);
+  const [recallError, setRecallError] = React.useState<string | null>(null);
 
   const loadMemories = React.useCallback(async () => {
     setLoading(true);
@@ -57,6 +65,42 @@ export default function MemoryBankPage() {
   React.useEffect(() => {
     loadMemories();
   }, [loadMemories]);
+
+  const handleSemanticRecall = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = recallQuery.trim();
+    if (!q) {
+      setRecallResults(null);
+      setRecallError(null);
+      return;
+    }
+    setRecalling(true);
+    setRecallError(null);
+    try {
+      const res = await fetch(`/api/walrus?query=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setRecallError(data.error || "Semantic recall failed.");
+        setRecallResults([]);
+      } else {
+        setRecallResults(Array.isArray(data.results) ? data.results : []);
+      }
+    } catch (err: unknown) {
+      setRecallError(err instanceof Error ? err.message : "Semantic recall failed.");
+      setRecallResults([]);
+    } finally {
+      setRecalling(false);
+    }
+  };
+
+  const q = globalQuery.trim().toLowerCase();
+  const visibleMemories = q
+    ? memories.filter((m) =>
+        `${m.title} ${m.body} ${m.asset || ""} ${m.kind} ${m.outcome || ""}`
+          .toLowerCase()
+          .includes(q)
+      )
+    : memories;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,27 +295,98 @@ export default function MemoryBankPage() {
       <GlassCard variant="tint" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[16px] font-medium text-white">
-            Memory Vault ({memories.length} Entries)
+            Memory Vault ({visibleMemories.length} Entries)
           </h3>
           <span className="text-xs text-fg-3 font-mono">
             {status.configured ? `Namespace: ${status.namespace || "signalrecall"}` : "Awaiting Relayer"}
           </span>
         </div>
 
-        {loading && memories.length === 0 ? (
+        {/* Semantic Vector Recall Query Bar */}
+        <form onSubmit={handleSemanticRecall} className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <input
+              type="search"
+              value={recallQuery}
+              onChange={(e) => setRecallQuery(e.target.value)}
+              placeholder="Semantic vector recall (e.g. BTC breakout, SOL support, CPI reaction)..."
+              aria-label="Semantic vector recall query"
+              className="glass-pill h-10 w-full rounded-full pl-4 pr-10 text-xs text-white placeholder:text-fg-3 outline-none focus:border-electric/60"
+            />
+            <Search className="pointer-events-none absolute right-3.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-2" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button type="submit" variant="glass" size="sm" disabled={recalling || !recallQuery.trim()}>
+              <Sparkles className="size-3.5 text-electric" />
+              <span>{recalling ? "Recalling..." : "Vector Recall"}</span>
+            </Button>
+            {recallResults !== null && (
+              <Button
+                type="button"
+                variant="glass"
+                size="sm"
+                onClick={() => {
+                  setRecallQuery("");
+                  setRecallResults(null);
+                  setRecallError(null);
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </form>
+
+        {recallResults !== null && (
+          <div className="rounded-2xl border border-electric/25 bg-electric/5 p-4 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-electric">
+                Walrus Vector Recall Matches ({recallResults.length})
+              </span>
+              <span className="text-fg-3 font-mono truncate max-w-full">
+                Query: &ldquo;{recallQuery}&rdquo;
+              </span>
+            </div>
+            {recallError ? (
+              <div className="text-xs text-[#FF4D5E]">{recallError}</div>
+            ) : recallResults.length === 0 ? (
+              <div className="text-xs text-fg-2">No matching vector memories found for this query.</div>
+            ) : (
+              <div className="space-y-2">
+                {recallResults.map((r, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white/90 leading-relaxed flex flex-wrap items-start justify-between gap-2"
+                  >
+                    <span className="flex-1 min-w-0 break-words">{r.text}</span>
+                    {typeof r.distance === "number" && (
+                      <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono text-fg-2">
+                        dist {r.distance.toFixed(3)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading && visibleMemories.length === 0 ? (
           <div className="py-16 text-center text-xs text-fg-3">
             Loading encrypted memories from Walrus...
           </div>
-        ) : memories.length === 0 ? (
+        ) : visibleMemories.length === 0 ? (
           <div className="py-16 text-center text-sm text-fg-3 space-y-2">
-            <p className="text-white font-medium text-base">No memories stored yet</p>
+            <p className="text-white font-medium text-base">
+              {q ? "No memories matching search" : "No memories stored yet"}
+            </p>
             <p className="text-fg-2 max-w-md mx-auto leading-relaxed">
               Store patterns, catalyst reactions, and verified trade settlements. The AI recalls these memories to ground future analysis.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {memories.map((m) => (
+            {visibleMemories.map((m) => (
               <div
                 key={m.id}
                 className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3 hover:bg-white/[0.05] transition-colors min-w-0"

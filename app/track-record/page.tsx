@@ -8,9 +8,11 @@ import { CoinIcon } from "@/components/CoinIcon";
 import { Button } from "@/components/ui/button";
 import { computeSignalPnlPct } from "@/lib/utils";
 import { shortDate } from "@/lib/time";
+import { SearchContext } from "@/components/layout/AppShell";
 import type { Memory, Signal } from "@/lib/types";
 
 export default function TrackRecordPage() {
+  const { query: globalQuery } = React.useContext(SearchContext);
   const [signals, setSignals] = React.useState<Signal[]>([]);
   const [memories, setMemories] = React.useState<Memory[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -166,16 +168,32 @@ export default function TrackRecordPage() {
           </span>
         </div>
 
-        {resolved.length === 0 ? (
+        {(() => {
+          const q = globalQuery.trim().toLowerCase();
+          const visibleResolved = q
+            ? resolved.filter((sig) =>
+                `${sig.asset} ${sig.pair} ${sig.direction} ${sig.status} ${sig.postMortem || ""}`
+                  .toLowerCase()
+                  .includes(q)
+              )
+            : resolved;
+
+          if (visibleResolved.length === 0) {
+            return (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center space-y-2">
-            <div className="text-base font-semibold text-white">No Settled Signals Yet</div>
+            <div className="text-base font-semibold text-white">
+              {q ? "No Settled Signals Matching Search" : "No Settled Signals Yet"}
+            </div>
             <p className="text-sm text-fg-2 max-w-md mx-auto leading-relaxed">
               Record a 24h signal in the Trading Terminal and run verification to populate Profit Factor, Memory Efficiency, and automatic Walrus post-mortems.
             </p>
           </div>
-        ) : (
+            );
+          }
+
+          return (
           <div className="space-y-3">
-            {resolved.map((sig) => {
+            {visibleResolved.map((sig) => {
               const pnl = computeSignalPnlPct(sig);
               const isWin = sig.status === "TARGET_REACHED";
 
@@ -207,10 +225,11 @@ export default function TrackRecordPage() {
                             {sig.status.replace("_", " ")}
                           </span>
                         </div>
-                        <div className="text-xs text-fg-2 num mt-0.5">
+                        <div className="text-xs text-fg-2 num mt-0.5 break-words">
                           Entry: ${sig.entry.toLocaleString()}
                           {sig.settledPrice != null && ` · Settled: $${sig.settledPrice.toLocaleString()}`}
                           {sig.suiCheckpoint && ` · Sui #${sig.suiCheckpoint.toLocaleString()}`}
+                          {sig.suiDigest && ` (${sig.suiDigest.slice(0, 10)}...)`}
                         </div>
                       </div>
                     </div>
@@ -240,7 +259,8 @@ export default function TrackRecordPage() {
               );
             })}
           </div>
-        )}
+          );
+        })()}
       </GlassCard>
     </div>
   );

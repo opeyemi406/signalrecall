@@ -14,6 +14,7 @@ import { CoinIcon } from "@/components/CoinIcon";
 import { Button } from "@/components/ui/button";
 import { shortDate } from "@/lib/time";
 import { computeSignalPnlPct } from "@/lib/utils";
+import { SearchContext } from "@/components/layout/AppShell";
 import type { Signal, SignalStatus } from "@/lib/types";
 
 function StatusPill({ status }: { status: SignalStatus }) {
@@ -42,6 +43,7 @@ function StatusPill({ status }: { status: SignalStatus }) {
 }
 
 export default function HistoryPage() {
+  const { query: globalQuery } = React.useContext(SearchContext);
   const [signals, setSignals] = React.useState<Signal[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<string>("ALL");
@@ -96,11 +98,12 @@ export default function HistoryPage() {
         ? row.status === "INVALIDATED"
         : row.status === "IN_PROGRESS";
 
+    const q = (search || globalQuery).trim().toLowerCase();
     const matchesSearch =
-      !search ||
-      row.pair.toLowerCase().includes(search.toLowerCase()) ||
-      row.asset.toLowerCase().includes(search.toLowerCase()) ||
-      row.id.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      row.pair.toLowerCase().includes(q) ||
+      row.asset.toLowerCase().includes(q) ||
+      row.id.toLowerCase().includes(q);
 
     return matchesFilter && matchesSearch;
   });

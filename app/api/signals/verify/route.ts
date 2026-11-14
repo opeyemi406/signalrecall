@@ -117,7 +117,8 @@ export async function POST(req: Request) {
     const ownerId = signal.userId || session?.user?.id;
 
     // Store automatic post-mortem directly into Walrus Memory
-    const fact = `[OUTCOME] ${signal.asset} ${signal.direction}: Entry $${signal.entry}, Settled ${settledStr} -> ${outcome.status} (${pnlStr}). Sui Checkpoint #${outcome.suiCheckpoint || "N/A"}. Post-mortem: ${postMortem}`;
+    const digestSuffix = outcome.suiDigest ? ` (${outcome.suiDigest.slice(0, 12)}...)` : "";
+    const fact = `[OUTCOME] ${signal.asset} ${signal.direction}: Entry $${signal.entry}, Settled ${settledStr} -> ${outcome.status} (${pnlStr}). Sui Checkpoint #${outcome.suiCheckpoint || "N/A"}${digestSuffix}. Post-mortem: ${postMortem}`;
     const memwalRes = await rememberSignalMemory(fact, ownerId);
 
     const existingIds = signal.memoryAudit?.memoryIds || [];
@@ -134,6 +135,7 @@ export async function POST(req: Request) {
         pnlPct: outcome.pnlPct ?? undefined,
         verifiedAt: outcome.verifiedAt,
         suiCheckpoint: outcome.suiCheckpoint,
+        suiDigest: outcome.suiDigest,
         postMortem,
         rationale: `${signal.rationale} [Verified by Tatum at ${settledStr} -> ${outcome.status} (${pnlStr})]`,
         memoryAudit: {

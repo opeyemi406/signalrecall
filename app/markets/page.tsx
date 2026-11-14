@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { getMarketAssets, type TatumMarketResponse } from "@/lib/tatum";
 import type { Asset, CoinSymbol } from "@/lib/types";
 import { formatUsd, formatPct } from "@/lib/utils";
+import { SearchContext } from "@/components/layout/AppShell";
 import type { MarketNewsItem } from "@/app/api/market/news/route";
 
 export default function MarketsPage() {
+  const { query: globalQuery } = React.useContext(SearchContext);
   const [search, setSearch] = React.useState("");
   const [onlyGainers, setOnlyGainers] = React.useState(false);
   const [selected, setSelected] = React.useState<CoinSymbol>("ETH");
@@ -57,10 +59,12 @@ export default function MarketsPage() {
     return () => clearInterval(interval);
   }, [loadData]);
 
+  const effectiveSearch = (search || globalQuery).trim().toLowerCase();
   const filtered = marketData.assets.filter((a) => {
     const matchesSearch =
-      a.symbol.toLowerCase().includes(search.toLowerCase()) ||
-      a.name.toLowerCase().includes(search.toLowerCase());
+      !effectiveSearch ||
+      a.symbol.toLowerCase().includes(effectiveSearch) ||
+      a.name.toLowerCase().includes(effectiveSearch);
     const matchesFilter = !onlyGainers || a.change24h >= 0;
     return matchesSearch && matchesFilter;
   });
